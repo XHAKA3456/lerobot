@@ -30,6 +30,7 @@ from lerobot.envs.configs import EnvConfig
 from lerobot.envs.utils import env_to_policy_features
 from lerobot.policies.act.configuration_act import ACTConfig
 from lerobot.policies.diffusion.configuration_diffusion import DiffusionConfig
+from lerobot.policies.flowmatching.configuration_flowmatching import FlowMatchingConfig
 from lerobot.policies.pi0.configuration_pi0 import PI0Config
 from lerobot.policies.pi0fast.configuration_pi0fast import PI0FASTConfig
 from lerobot.policies.pretrained import PreTrainedPolicy
@@ -57,7 +58,7 @@ def get_policy_class(name: str) -> type[PreTrainedPolicy]:
 
     Args:
         name: The name of the policy. Supported names are "tdmpc", "diffusion", "act",
-              "vqbet", "pi0", "pi0fast", "sac", "reward_classifier", "smolvla".
+              "vqbet", "pi0", "pi0fast", "sac", "reward_classifier", "smolvla", "flowmatching".
 
     Returns:
         The policy class corresponding to the given name.
@@ -81,6 +82,10 @@ def get_policy_class(name: str) -> type[PreTrainedPolicy]:
         from lerobot.policies.vqbet.modeling_vqbet import VQBeTPolicy
 
         return VQBeTPolicy
+    elif name == "flowmatching":
+        from lerobot.policies.flowmatching.modeling_flowmatching import FlowMatchingPolicy
+
+        return FlowMatchingPolicy
     elif name == "pi0":
         from lerobot.policies.pi0.modeling_pi0 import PI0Policy
 
@@ -115,7 +120,7 @@ def make_policy_config(policy_type: str, **kwargs) -> PreTrainedConfig:
     Args:
         policy_type: The type of the policy. Supported types include "tdmpc",
                      "diffusion", "act", "vqbet", "pi0", "pi0fast", "sac", "smolvla",
-                     "reward_classifier".
+                     "reward_classifier", "flowmatching".
         **kwargs: Keyword arguments to be passed to the configuration class constructor.
 
     Returns:
@@ -132,6 +137,8 @@ def make_policy_config(policy_type: str, **kwargs) -> PreTrainedConfig:
         return ACTConfig(**kwargs)
     elif policy_type == "vqbet":
         return VQBeTConfig(**kwargs)
+    elif policy_type == "flowmatching":
+        return FlowMatchingConfig(**kwargs)
     elif policy_type == "pi0":
         return PI0Config(**kwargs)
     elif policy_type == "pi0fast":
@@ -289,6 +296,14 @@ def make_pre_post_processors(
         from lerobot.policies.smolvla.processor_smolvla import make_smolvla_pre_post_processors
 
         processors = make_smolvla_pre_post_processors(
+            config=policy_cfg,
+            dataset_stats=kwargs.get("dataset_stats"),
+        )
+
+    elif isinstance(policy_cfg, FlowMatchingConfig):
+        from lerobot.policies.flowmatching.processor_flowmatching import make_flowmatching_pre_post_processors
+
+        processors = make_flowmatching_pre_post_processors(
             config=policy_cfg,
             dataset_stats=kwargs.get("dataset_stats"),
         )
