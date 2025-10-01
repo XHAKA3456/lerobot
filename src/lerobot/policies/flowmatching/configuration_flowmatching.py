@@ -53,6 +53,7 @@ class FlowMatchingConfig(PreTrainedConfig):
 
     # Vision encoder settings (ViT)
     vision_backbone: str = "vit_b_16"  # vit_b_16, vit_b_32, vit_l_16, etc.
+    vision_backbone_weights: str = "ViT_B_16_Weights"  # Weights class name in torchvision.models
     pretrained_backbone_weights: str | None = "IMAGENET1K_V1"
     vit_embed_dim: int = 768  # 768 for ViT-B, 1024 for ViT-L
     vit_patch_size: int = 16
