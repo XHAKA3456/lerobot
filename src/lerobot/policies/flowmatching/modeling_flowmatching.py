@@ -45,13 +45,12 @@ def create_sinusoidal_pos_embedding(
     if time.ndim != 1:
         raise ValueError("The time tensor is expected to be of shape `(batch_size, )`.")
 
-    dtype = get_safe_dtype(torch.float64, device.type)
-    fraction = torch.linspace(0.0, 1.0, dimension // 2, dtype=dtype, device=device)
+    fraction = torch.linspace(0.0, 1.0, dimension // 2, dtype=torch.float32, device=device)
     period = min_period * (max_period / min_period) ** fraction
 
     # Compute the outer product
     scaling_factor = 1.0 / period * 2 * math.pi
-    sin_input = scaling_factor[None, :] * time[:, None]
+    sin_input = scaling_factor[None, :] * time[:, None].float()
     pos_emb = torch.cat([torch.sin(sin_input), torch.cos(sin_input)], dim=1)
     return pos_emb
 
@@ -84,9 +83,7 @@ class VisionEncoder(nn.Module):
 
         # Load pretrained ViT
         if config.pretrained_backbone_weights:
-            # Get weights class name from backbone name (e.g., vit_b_16 -> ViT_B_16_Weights)
-            weights_class_name = config.vision_backbone.upper() + "_Weights"
-            weights_class = getattr(torchvision.models, weights_class_name)
+            weights_class = getattr(torchvision.models, config.vision_backbone_weights)
             weights = getattr(weights_class, config.pretrained_backbone_weights)
             vit_model = getattr(torchvision.models, config.vision_backbone)(weights=weights)
         else:
