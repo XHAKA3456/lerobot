@@ -153,6 +153,10 @@ class FlowMatchingPolicy(PreTrainedPolicy):
         """Select a single action given environment observations."""
         self.eval()
 
+        # NOTE: for offline evaluation, we have action in the batch, so we need to pop it out
+        if ACTION in batch:
+            batch.pop(ACTION)
+
         if len(self._action_queue) == 0:
             images, img_masks = self.prepare_images(batch)
             state = self.prepare_state(batch)
