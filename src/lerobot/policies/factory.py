@@ -31,6 +31,7 @@ from lerobot.envs.utils import env_to_policy_features
 from lerobot.policies.act.configuration_act import ACTConfig
 from lerobot.policies.diffusion.configuration_diffusion import DiffusionConfig
 from lerobot.policies.flowmatching.configuration_flowmatching import FlowMatchingConfig
+from lerobot.policies.groot.configuration_groot import GrootConfig
 from lerobot.policies.pi0.configuration_pi0 import PI0Config
 from lerobot.policies.pi05.configuration_pi05 import PI05Config
 from lerobot.policies.pretrained import PreTrainedPolicy
@@ -58,11 +59,7 @@ def get_policy_class(name: str) -> type[PreTrainedPolicy]:
 
     Args:
         name: The name of the policy. Supported names are "tdmpc", "diffusion", "act",
-<<<<<<< HEAD
-              "vqbet", "pi0", "pi0fast", "sac", "reward_classifier", "smolvla", "flowmatching".
-=======
-              "vqbet", "pi0", "pi05", "sac", "reward_classifier", "smolvla".
->>>>>>> 6e8be57e (chore(policies): deprecate pi0fast (#2203))
+              "vqbet", "pi0", "pi05", "sac", "reward_classifier", "smolvla", "flowmatching", "groot".
 
     Returns:
         The policy class corresponding to the given name.
@@ -86,17 +83,10 @@ def get_policy_class(name: str) -> type[PreTrainedPolicy]:
         from lerobot.policies.vqbet.modeling_vqbet import VQBeTPolicy
 
         return VQBeTPolicy
-<<<<<<< HEAD
     elif name == "flowmatching":
         from lerobot.policies.flowmatching.modeling_flowmatching import FlowMatchingPolicy
 
         return FlowMatchingPolicy
-    elif name == "pi0fast":
-        from lerobot.policies.pi0fast.modeling_pi0fast import PI0FASTPolicy
-
-        return PI0FASTPolicy
-=======
->>>>>>> 6e8be57e (chore(policies): deprecate pi0fast (#2203))
     elif name == "pi0":
         from lerobot.policies.pi0.modeling_pi0 import PI0Policy
 
@@ -117,6 +107,10 @@ def get_policy_class(name: str) -> type[PreTrainedPolicy]:
         from lerobot.policies.smolvla.modeling_smolvla import SmolVLAPolicy
 
         return SmolVLAPolicy
+    elif name == "groot":
+        from lerobot.policies.groot.modeling_groot import GrootPolicy
+
+        return GrootPolicy
     else:
         raise NotImplementedError(f"Policy with name {name} is not implemented.")
 
@@ -130,13 +124,8 @@ def make_policy_config(policy_type: str, **kwargs) -> PreTrainedConfig:
 
     Args:
         policy_type: The type of the policy. Supported types include "tdmpc",
-<<<<<<< HEAD
-                     "diffusion", "act", "vqbet", "pi0", "pi0fast", "sac", "smolvla",
-                     "reward_classifier", "flowmatching".
-=======
                      "diffusion", "act", "vqbet", "pi0", "pi05", "sac", "smolvla",
-                     "reward_classifier".
->>>>>>> 6e8be57e (chore(policies): deprecate pi0fast (#2203))
+                     "reward_classifier", "flowmatching", "groot".
         **kwargs: Keyword arguments to be passed to the configuration class constructor.
 
     Returns:
@@ -153,13 +142,8 @@ def make_policy_config(policy_type: str, **kwargs) -> PreTrainedConfig:
         return ACTConfig(**kwargs)
     elif policy_type == "vqbet":
         return VQBeTConfig(**kwargs)
-<<<<<<< HEAD
     elif policy_type == "flowmatching":
         return FlowMatchingConfig(**kwargs)
-    elif policy_type == "pi0fast":
-        return PI0FASTConfig(**kwargs)
-=======
->>>>>>> 6e8be57e (chore(policies): deprecate pi0fast (#2203))
     elif policy_type == "pi0":
         return PI0Config(**kwargs)
     elif policy_type == "pi05":
@@ -170,6 +154,8 @@ def make_policy_config(policy_type: str, **kwargs) -> PreTrainedConfig:
         return SmolVLAConfig(**kwargs)
     elif policy_type == "reward_classifier":
         return RewardClassifierConfig(**kwargs)
+    elif policy_type == "groot":
+        return GrootConfig(**kwargs)
     else:
         raise ValueError(f"Policy type '{policy_type}' is not available.")
 
@@ -227,6 +213,27 @@ def make_pre_post_processors(
             policy configuration type.
     """
     if pretrained_path:
+        # TODO(Steven): Temporary patch, implement correctly the processors for Gr00t
+        if isinstance(policy_cfg, GrootConfig):
+            # GROOT handles normalization in groot_pack_inputs_v3 step
+            # Need to override both stats AND normalize_min_max since saved config might be empty
+            preprocessor_overrides = {}
+            postprocessor_overrides = {}
+            preprocessor_overrides["groot_pack_inputs_v3"] = {
+                "stats": kwargs.get("dataset_stats"),
+                "normalize_min_max": True,
+            }
+
+            # Also ensure postprocessing slices to env action dim and unnormalizes with dataset stats
+            env_action_dim = policy_cfg.output_features["action"].shape[0]
+            postprocessor_overrides["groot_action_unpack_unnormalize_v1"] = {
+                "stats": kwargs.get("dataset_stats"),
+                "normalize_min_max": True,
+                "env_action_dim": env_action_dim,
+            }
+            kwargs["preprocessor_overrides"] = preprocessor_overrides
+            kwargs["postprocessor_overrides"] = postprocessor_overrides
+
         return (
             PolicyProcessorPipeline.from_pretrained(
                 pretrained_model_name_or_path=pretrained_path,
@@ -321,10 +328,17 @@ def make_pre_post_processors(
             dataset_stats=kwargs.get("dataset_stats"),
         )
 
+<<<<<<< HEAD
     elif isinstance(policy_cfg, FlowMatchingConfig):
         from lerobot.policies.flowmatching.processor_flowmatching import make_flowmatching_pre_post_processors
 
         processors = make_flowmatching_pre_post_processors(
+=======
+    elif isinstance(policy_cfg, GrootConfig):
+        from lerobot.policies.groot.processor_groot import make_groot_pre_post_processors
+
+        processors = make_groot_pre_post_processors(
+>>>>>>> be46bdea (feat(policies): add Nvidia Gr00t N1.5 model (#2292))
             config=policy_cfg,
             dataset_stats=kwargs.get("dataset_stats"),
         )
