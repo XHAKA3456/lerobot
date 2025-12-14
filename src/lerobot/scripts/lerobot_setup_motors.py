@@ -30,6 +30,8 @@ import draccus
 
 from lerobot.robots import (  # noqa: F401
     RobotConfig,
+    bi_so100_follower,
+    bi_so101_follower,
     koch_follower,
     lekiwi,
     make_robot_from_config,
@@ -38,6 +40,8 @@ from lerobot.robots import (  # noqa: F401
 )
 from lerobot.teleoperators import (  # noqa: F401
     TeleoperatorConfig,
+    bi_so100_leader,
+    bi_so101_leader,
     koch_leader,
     make_teleoperator_from_config,
     so100_leader,
@@ -51,6 +55,10 @@ COMPATIBLE_DEVICES = [
     "so100_leader",
     "so101_follower",
     "so101_leader",
+    "bi_so100_follower",
+    "bi_so100_leader",
+    "bi_so101_follower",
+    "bi_so101_leader",
     "lekiwi",
 ]
 
