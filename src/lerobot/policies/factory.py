@@ -329,17 +329,18 @@ def make_pre_post_processors(
             dataset_stats=kwargs.get("dataset_stats"),
         )
 
-<<<<<<< HEAD
     elif isinstance(policy_cfg, FlowMatchingConfig):
         from lerobot.policies.flowmatching.processor_flowmatching import make_flowmatching_pre_post_processors
 
         processors = make_flowmatching_pre_post_processors(
-=======
+            config=policy_cfg,
+            dataset_stats=kwargs.get("dataset_stats"),
+        )
+
     elif isinstance(policy_cfg, GrootConfig):
         from lerobot.policies.groot.processor_groot import make_groot_pre_post_processors
 
         processors = make_groot_pre_post_processors(
->>>>>>> be46bdea (feat(policies): add Nvidia Gr00t N1.5 model (#2292))
             config=policy_cfg,
             dataset_stats=kwargs.get("dataset_stats"),
         )

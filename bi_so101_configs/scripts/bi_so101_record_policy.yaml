@@ -1,0 +1,42 @@
+robot:
+  type: bi_so101_follower
+  id: black
+  calibration_dir: /home/stream/sst_xlerbot/lerobot/bi_so101_configs/calibration/bi_so101_follower
+  left_arm_port: /dev/ttyACM0
+  right_arm_port: /dev/ttyACM1
+  left_arm_disable_torque_on_disconnect: false
+  right_arm_disable_torque_on_disconnect: false
+  left_arm_use_degrees: false
+  right_arm_use_degrees: false
+  cameras:
+    rigth:
+      type: opencv
+      index_or_path: /dev/video2
+      width: 640
+      height: 480
+      fps: 30
+    left:
+      type: opencv
+      index_or_path: /dev/video4
+      width: 640
+      height: 480
+      fps: 30
+    front:
+      type: opencv
+      index_or_path: /dev/video6
+      width: 640
+      height: 480
+      fps: 30
+dataset:
+  repo_id: xhaka3456/eval_bi_so101_policy_demo
+  single_task: "Bimanual robot : policy-controlled pick and place"
+  root: /home/stream/sst_xlerbot/lerobot/bi_so101_configs/datasets/eval_bi_so101_policy_demo
+  fps: 30
+  episode_time_s: 1000
+  reset_time_s: 8
+  num_episodes: 20
+  video: true
+  push_to_hub: true
+display_data: true
+play_sounds: false
+resume: false

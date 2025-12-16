@@ -1,0 +1,48 @@
+robot:
+  type: bi_so101_follower
+  id: black
+  calibration_dir: /home/stream/sst_xlerbot/lerobot/bi_so101_configs/calibration/bi_so101_follower
+  left_arm_port: /dev/ttyACM0
+  right_arm_port: /dev/ttyACM1
+  left_arm_disable_torque_on_disconnect: false
+  right_arm_disable_torque_on_disconnect: false
+  left_arm_use_degrees: false
+  right_arm_use_degrees: false
+  cameras:
+    rigth:
+      type: opencv
+      index_or_path: /dev/video2
+      width: 640
+      height: 480
+      fps: 30
+    left:
+      type: opencv
+      index_or_path: /dev/video4
+      width: 640
+      height: 480
+      fps: 30
+    front:
+      type: opencv
+      index_or_path: /dev/video6
+      width: 640
+      height: 480
+      fps: 30
+dataset:
+  repo_id: xhaka3456/bi_so101_pick_dolls_demo
+  single_task: "Bimanual robot : pick and place dolls on each box"
+  root: /home/stream/sst_xlerbot/lerobot/bi_so101_configs/datasets
+  fps: 30
+  episode_time_s: 30
+  reset_time_s: 5
+  num_episodes: 10
+  video: true
+  push_to_hub: true
+teleop:
+  type: bi_so101_leader
+  id: black
+  calibration_dir: /home/stream/sst_xlerbot/lerobot/bi_so101_configs/calibration/bi_so101_leader
+  left_arm_port: /dev/ttyACM2
+  right_arm_port: /dev/ttyACM3
+display_data: true
+play_sounds: false
+resume: true
