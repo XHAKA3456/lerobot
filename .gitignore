@@ -177,3 +177,6 @@ outputs/
 *.urdf
 *.xml
 *.part
+
+datasets/
+datasets_prevs22/

@@ -9,13 +9,13 @@ robot:
   left_arm_use_degrees: false
   right_arm_use_degrees: false
   cameras:
-    rigth:
+    left:
       type: opencv
       index_or_path: /dev/video2
       width: 640
       height: 480
       fps: 30
-    left:
+    right:
       type: opencv
       index_or_path: /dev/video4
       width: 640
@@ -27,14 +27,15 @@ robot:
       width: 640
       height: 480
       fps: 30
+
 dataset:
-  repo_id: xhaka3456/bi_so101_pick_dolls_demo
-  single_task: "Bimanual robot : pick and place dolls on each box"
-  root: /home/stream/sst_xlerbot/lerobot/bi_so101_configs/datasets
+  repo_id: xhaka3456/qualcomm
+  single_task: "Bimanual robot : pick and place"
+  root: /home/stream/sst_xlerbot/lerobot/bi_so101_configs/datasets/qualcomm
   fps: 30
-  episode_time_s: 30
-  reset_time_s: 5
-  num_episodes: 10
+  episode_time_s: 20
+  reset_time_s: 1
+  num_episodes: 20
   video: true
   push_to_hub: true
 teleop:
@@ -45,4 +46,4 @@ teleop:
   right_arm_port: /dev/ttyACM3
 display_data: true
 play_sounds: false
-resume: true
+resume: false

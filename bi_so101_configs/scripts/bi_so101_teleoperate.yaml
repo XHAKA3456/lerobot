@@ -15,13 +15,13 @@ robot:
   left_arm_use_degrees: false
   right_arm_use_degrees: false
   cameras:
-    rigth:
+    left:
       type: opencv
       index_or_path: /dev/video2
       width: 640
       height: 480
       fps: 30
-    left:
+    right:
       type: opencv
       index_or_path: /dev/video4
       width: 640
@@ -33,6 +33,8 @@ robot:
       width: 640
       height: 480
       fps: 30
+
+
 
 fps: 30
 display_data: true
