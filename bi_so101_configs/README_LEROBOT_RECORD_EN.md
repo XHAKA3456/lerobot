@@ -10,7 +10,7 @@ Open a terminal and activate the xlerobot environment.
 
 ▶️ **Run**
 ```bash
-conda activate xlerobot
+source ~/miniconda3/bin/activate xlerobot
 ```
 
 ## 2. Navigate to Working Directory

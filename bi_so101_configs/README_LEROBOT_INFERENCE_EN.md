@@ -12,7 +12,7 @@ Open a terminal and activate the xlerobot environment.
 
 ▶️ **Run**
 ```bash
-conda activate xlerobot
+source ~/miniconda3/bin/activate xlerobot
 ```
 
 ## 2. Navigate to Working Directory
@@ -87,6 +87,10 @@ huggingface-cli download xhaka3456/univ_model --local-dir /home/ubuntu/lerobot/b
 
 Open the script and modify the `policy` path to point to your downloaded model.
 
+```bash
+policy="/home/ubuntu/lerobot/bi_so101_configs/models/<repo_id>"
+```
+
 📝 **Example**
 ```bash
 policy="/home/ubuntu/lerobot/bi_so101_configs/models/univ_model"
@@ -100,6 +104,15 @@ cd lerobot && ./bi_so101_configs/run_record_policy.sh
 ```
 
 The robot will now execute the learned policy autonomously.
+
+## 8. Teleoperation (Optional)
+
+If you want to switch to teleoperation mode where the follower arms follow the leader arms, stop the inference first by pressing `Ctrl+C`, then run:
+
+▶️ **Run**
+```bash
+./bi_so101_configs/run_teleoperate.sh
+```
 
 ---
 
