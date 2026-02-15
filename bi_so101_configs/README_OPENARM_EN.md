@@ -58,9 +58,19 @@ The robot will move to its default pose (arms extended). **Stand next to the rob
 Once the robot is ready:
 
 1. Stand next to the robot
-2. Turn on the Meta Quest
+2. Turn on the Meta Quest by pressing the button on the **left side** of the headset once
+3. Check that the `get_pose_v*` app (e.g., `get_pose_v2`, `get_pose_v3`, etc.) is running on the Meta Quest. If it is not running, launch it. The app has been installed and launched before, so you can find it in the **recent apps** section — tap the recent apps button on the bottom taskbar (highlighted in red below).
+
+   ![Meta Quest Taskbar](./images/metaquesthome.png)
+
+   The app is built with Unity, so its icon looks like this:
+
+   <img src="https://unity.com/favicon.ico" width="64"/>
+
+   *(A dark cube with the Unity logo)*
 
 > **⚠️ IMPORTANT**:
+> - The `get_pose_v*` app **must** be launched on the Meta Quest before proceeding
 > - Do NOT change your position after turning on the Meta Quest
 > - If the Meta Quest is already on, **turn it off and on again**
 
