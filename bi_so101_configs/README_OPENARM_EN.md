@@ -65,7 +65,7 @@ Once the robot is ready:
 
    The app is built with Unity, so its icon looks like this:
 
-   <img src="https://unity.com/favicon.ico" width="64"/>
+   <img src="./images/unity_logo.png" width="64"/>
 
    *(A dark cube with the Unity logo)*
 
