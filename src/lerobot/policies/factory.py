@@ -436,7 +436,13 @@ def make_policy(
     # policy = torch.compile(policy, mode="reduce-overhead")
 
     if not rename_map:
-        validate_visual_features_consistency(cfg, features)
+        # When input_features is explicitly set, only validate against selected features
+        # (allows datasets with extra visual features to be used selectively)
+        if cfg.input_features:
+            selected_features = {k: v for k, v in features.items() if k in cfg.input_features or k in cfg.output_features}
+        else:
+            selected_features = features
+        validate_visual_features_consistency(cfg, selected_features)
         # TODO: (jadechoghari) - add a check_state(cfg, features) and check_action(cfg, features)
 
     return policy
