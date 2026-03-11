@@ -19,6 +19,7 @@ from dataclasses import dataclass, field
 from lerobot.configs.policies import PreTrainedConfig
 from lerobot.configs.types import NormalizationMode
 from lerobot.optim.optimizers import AdamWConfig
+from lerobot.optim.schedulers import CosineDecayWithWarmupSchedulerConfig
 
 
 @PreTrainedConfig.register_subclass("flowmatching")
@@ -45,8 +46,10 @@ class FlowMatchingConfig(PreTrainedConfig):
             return x_0  (denoised action)
 
     Architecture:
-        - Vision: DINOv2 ViT-B/14 (frozen) → 256 patch tokens per image, 768-dim → projected to dim_model
-        - Obs encoder: Transformer encoder over (state_token + image_tokens)
+        - Vision: DINOv2 ViT-B/14 (frozen) → 256 patch tokens per image, 768-dim
+          → projected to dim_model → 2×2 avg pool → 64 tokens per camera
+          + camera embedding (per camera) + patch position embedding (spatial)
+        - Obs encoder: Transformer encoder over (state_token + pooled_image_tokens)
         - Velocity net: Transformer decoder, queries=action+time, keys/values=obs_features
     """
 
@@ -91,6 +94,11 @@ class FlowMatchingConfig(PreTrainedConfig):
     optimizer_lr: float = 1e-4
     optimizer_weight_decay: float = 1e-4
 
+    # LR scheduler: cosine decay with linear warmup (pi0-style)
+    scheduler_warmup_steps: int = 1000
+    scheduler_decay_steps: int = 100000
+    scheduler_decay_lr: float = 1e-6
+
     def __post_init__(self):
         super().__post_init__()
         if self.n_action_steps > self.chunk_size:
@@ -106,8 +114,13 @@ class FlowMatchingConfig(PreTrainedConfig):
             weight_decay=self.optimizer_weight_decay,
         )
 
-    def get_scheduler_preset(self) -> None:
-        return None
+    def get_scheduler_preset(self) -> CosineDecayWithWarmupSchedulerConfig:
+        return CosineDecayWithWarmupSchedulerConfig(
+            num_warmup_steps=self.scheduler_warmup_steps,
+            num_decay_steps=self.scheduler_decay_steps,
+            peak_lr=self.optimizer_lr,
+            decay_lr=self.scheduler_decay_lr,
+        )
 
     def validate_features(self) -> None:
         if not self.image_features and not self.env_state_feature and not self.robot_state_feature:

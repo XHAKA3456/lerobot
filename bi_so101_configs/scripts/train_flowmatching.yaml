@@ -1,0 +1,131 @@
+# Flow Matching Policy — Training Config for bi_so101
+#
+# Usage:
+#   python -m lerobot.scripts.lerobot_train \
+#     --config_path bi_so101_configs/scripts/train_flowmatching.yaml
+
+# ---- Dataset ----
+dataset:
+  repo_id: xhaka3456/openarm_pick_strawberry_and_place_on_white_plate
+  root: /home/sst/openarm/src/openarm_lerobot/datasets/openarm_pick_strawberry_and_place_on_white_plate
+  episodes: null
+  video_backend: torchcodec
+
+# ---- Output ----
+output_dir: outputs/train/flowmatching_openarm_pick_strawberry_and_place_on_white_plate
+job_name: opearm_flowmatching_pick_strawberry_and_place_on_white_plate
+
+# ---- Policy ----
+policy:
+  type: flowmatching
+
+  n_obs_steps: 1
+  chunk_size: 100
+  n_action_steps: 100
+
+  # ---- 학습에 사용할 Input features ----
+  # 데이터셋에서 필요한 것만 선택 (나머지는 무시됨)
+  input_features:
+    observation.state:
+      type: STATE
+      shape: [16]
+    observation.images.head:
+      type: VISUAL
+      shape: [3, 480, 640]
+    observation.images.left_wrist:
+      type: VISUAL
+      shape: [3, 480, 640]
+    observation.images.right_wrist:
+      type: VISUAL
+      shape: [3, 480, 640]
+    # --- 필요시 추가 가능 ---
+    # observation.velocity:
+    #   type: STATE
+    #   shape: [16]
+    # observation.effort:
+    #   type: STATE
+    #   shape: [16]
+    # observation.images.head_depth:
+    #   type: VISUAL
+    #   shape: [3, 480, 640]
+    # observation.images.left_wrist_depth:
+    #   type: VISUAL
+    #   shape: [3, 480, 640]
+    # observation.images.right_wrist_depth:
+    #   type: VISUAL
+    #   shape: [3, 480, 640]
+
+  # ---- 학습에 사용할 Output features ----
+  output_features:
+    action:
+      type: ACTION
+      shape: [16]
+    # --- 필요시 추가 가능 ---
+    # action.left_eef_delta:
+    #   type: ACTION
+    #   shape: [7]
+    # action.right_eef_delta:
+    #   type: ACTION
+    #   shape: [7]
+
+  normalization_mapping:
+    VISUAL: MEAN_STD
+    STATE: MEAN_STD
+    ACTION: MEAN_STD
+
+  # Vision backbone (frozen DINOv2 ViT-B/14)
+  dinov2_model_name: facebook/dinov2-base
+
+  # Transformer dimensions
+  dim_model: 512
+  n_heads: 8
+  dim_feedforward: 3200
+  dropout: 0.1
+
+  n_obs_encoder_layers: 6
+  n_velocity_layers: 6
+
+  # Flow matching (pi0-style)
+  num_inference_steps: 10
+  time_sampling_beta_alpha: 1.5
+  time_sampling_beta_beta: 1.0
+  time_sampling_scale: 0.999
+  time_sampling_offset: 0.001
+  min_period: 0.004
+  max_period: 4.0
+
+  # Optimizer
+  optimizer_lr: 1.0e-4
+  optimizer_weight_decay: 1.0e-4
+
+  # LR Scheduler (CosineDecayWithWarmup)
+  scheduler_warmup_steps: 1000
+  scheduler_decay_steps: 100000
+  scheduler_decay_lr: 1.0e-6
+
+  device: cuda
+  use_amp: true
+
+  # Hub upload
+  push_to_hub: true
+  repo_id: xhaka3456/flowmatching_openarm_pick_strawberry_and_place_on_white_plate
+  private: false
+
+# ---- Training loop ----
+batch_size: 32
+steps: 80000
+num_workers: 18
+
+log_freq: 200
+save_checkpoint: true
+save_freq: 10000
+eval_freq: 0
+
+seed: 42
+
+use_policy_training_preset: true
+
+# ---- W&B ----
+wandb:
+  enable: false
+  project: bi_so101_flowmatching

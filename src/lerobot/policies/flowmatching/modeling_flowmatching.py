@@ -18,11 +18,13 @@
 
 Architecture:
   - Vision backbone: DINOv2 ViT-B/14 (frozen) → 256 patch tokens × 768-dim per camera
-  - Obs encoder: Transformer encoder over [state_token, *patch_tokens_cam0, *patch_tokens_cam1, ...]
-  - Velocity network: Transformer decoder
+    → 2×2 avg pool → 64 tokens per camera + camera embedding + patch position embedding
+  - Obs encoder: Transformer encoder over [state_token, *pooled_tokens_cam0, ..., *pooled_tokens_camN]
+  - Velocity network: Transformer decoder with AdaLN (time-conditioned normalization)
       queries = noisy_action_tokens + time_embedding
       keys/values = obs_features  (cross-attention)
-  - Output: predicted velocity → action via backward Euler ODE
+      every layer: AdaLayerNorm(x, temb) conditions on diffusion timestep
+  - Output: time-conditioned affine → linear proj → predicted velocity → action via backward Euler ODE
 
 Flow matching math (pi0-style):
   Training:
@@ -61,6 +63,10 @@ _DINOV2_DIM = 768
 _DINOV2_IMAGE_SIZE = 224
 # Number of patch tokens for 224×224 with patch_size=14: (224/14)^2 = 256
 _DINOV2_NUM_PATCHES = 256
+# Pooled patch grid: 2×2 avg pool on 16×16 → 8×8 = 64 tokens per camera
+_DINOV2_GRID_SIZE = 16   # sqrt(256)
+_POOL_KERNEL = 2
+_POOLED_NUM_PATCHES = (_DINOV2_GRID_SIZE // _POOL_KERNEL) ** 2  # 64
 
 
 # ---------------------------------------------------------------------------
@@ -152,8 +158,9 @@ class FlowMatchingPolicy(PreTrainedPolicy):
         if "action_is_pad" in batch:
             mask = ~batch["action_is_pad"].unsqueeze(-1)  # (B, T, 1)
             losses = losses * mask
-
-        loss = losses.mean()
+            loss = losses.sum() / mask.sum()
+        else:
+            loss = losses.mean()
         loss_dict = {
             "loss": loss.item(),
             "loss_per_dim": losses.mean(dim=[0, 1]).detach().cpu().tolist(),
@@ -176,15 +183,17 @@ class FlowMatchingModel(nn.Module):
     """Core neural network for flow matching.
 
     Obs encoding (runs once per chunk):
-        DINOv2(each_image) → patch tokens (B, 256, 768) → Linear proj (B, 256, D)
+        DINOv2(each_image) → patch tokens (B, 256, 768) → Linear proj → 2×2 avg pool → (B, 64, D)
+        + camera_embed (per camera) + patch_pos_embed (spatial position)
         state → (B, D)
-        TransformerEncoder([state_token, *img_tokens_cam0, ..., *img_tokens_camN]) → obs_features
+        TransformerEncoder([state_token, *pooled_tokens_cam0, ..., *pooled_tokens_camN]) → obs_features
 
     Velocity prediction (runs num_inference_steps times at inference):
         noisy_action (B, T, A) → project → (B, T, D)
-        time (B,) → sinusoidal emb (B, D) → broadcast + fuse with action_emb
-        TransformerDecoder(queries=action_time_tokens, kv=obs_features) → (T, B, D)
-        project → v_pred (B, T, A)
+        time (B,) → sinusoidal emb → time_mlp → temb (B, D)
+        temb broadcast + fuse with action_emb → input tokens
+        TransformerDecoder with AdaLN(temb) → (T, B, D)
+        time-conditioned output norm → project → v_pred (B, T, A)
     """
 
     def __init__(self, config: FlowMatchingConfig):
@@ -201,6 +210,11 @@ class FlowMatchingModel(nn.Module):
                 param.requires_grad_(False)
             # Project DINOv2 patch tokens (768-dim) → dim_model
             self.img_feat_proj = nn.Linear(_DINOV2_DIM, D)
+            # Camera-distinguishing embedding (one per camera)
+            num_cameras = len(config.image_features)
+            self.camera_embed = nn.Embedding(num_cameras, D)
+            # Spatial position embedding for pooled patch tokens
+            self.patch_pos_embed = nn.Embedding(_POOLED_NUM_PATCHES, D)
 
         # ---- 1-D tokens (state, env_state) ----
         n_1d = 0
@@ -216,10 +230,18 @@ class FlowMatchingModel(nn.Module):
         # ---- Observation encoder (Transformer encoder) ----
         self.obs_encoder = _TransformerEncoder(config, n_layers=config.n_obs_encoder_layers)
 
-        # ---- Velocity network (Transformer decoder) ----
+        # ---- Velocity network (Transformer decoder with AdaLN) ----
         self.action_in_proj = nn.Linear(A, D)
         self.action_out_proj = nn.Linear(D, A)
 
+        # Time embedding: sinusoidal → learned representation for AdaLN
+        self.time_mlp = nn.Sequential(
+            nn.Linear(D, D),
+            nn.SiLU(),
+            nn.Linear(D, D),
+        )
+
+        # Action-time input fusion (W1=action_in_proj, W2+W3 here)
         self.action_time_mlp = nn.Sequential(
             nn.Linear(D * 2, D),
             nn.SiLU(),
@@ -229,6 +251,10 @@ class FlowMatchingModel(nn.Module):
         self.action_pos_embed = nn.Embedding(config.chunk_size, D)
 
         self.velocity_decoder = _TransformerDecoder(config, n_layers=config.n_velocity_layers)
+
+        # Time-conditioned output (GR00T-style)
+        self.output_norm = nn.LayerNorm(D, elementwise_affine=False)
+        self.output_time_proj = nn.Sequential(nn.SiLU(), nn.Linear(D, 2 * D))
 
         self._reset_parameters()
 
@@ -281,10 +307,11 @@ class FlowMatchingModel(nn.Module):
 
         if self.config.image_features:
             D = self.config.dim_model
-            for img in batch[OBS_IMAGES]:
+            for cam_idx, img in enumerate(batch[OBS_IMAGES]):
                 # img: (B, n_obs_steps, 3, H, W) or (B, 3, H, W) — squeeze time dim
                 if img.ndim == 5:
                     img = img[:, 0]  # (B, 3, H, W)
+                B_img = img.shape[0]
                 # img: (B, 3, H, W) — resize to 224×224 for DINOv2
                 img_resized = F.interpolate(
                     img, size=(_DINOV2_IMAGE_SIZE, _DINOV2_IMAGE_SIZE),
@@ -297,10 +324,21 @@ class FlowMatchingModel(nn.Module):
                 patch_tokens = dino_out.last_hidden_state[:, 1:]
 
                 feat = self.img_feat_proj(patch_tokens)                # (B, 256, D)
-                feat = einops.rearrange(feat, "b n d -> n b d")        # (256, B, D)
 
-                # DINOv2 encodes position internally; use zero pos embeds here
-                pos = torch.zeros(_DINOV2_NUM_PATCHES, 1, D, device=feat.device, dtype=feat.dtype)
+                # Spatial 2×2 avg pooling: (B, 256, D) → (B, 64, D)
+                feat = feat.view(B_img, _DINOV2_GRID_SIZE, _DINOV2_GRID_SIZE, D)
+                feat = feat.permute(0, 3, 1, 2)                       # (B, D, 16, 16)
+                feat = F.avg_pool2d(feat, kernel_size=_POOL_KERNEL)    # (B, D, 8, 8)
+                feat = feat.permute(0, 2, 3, 1).reshape(B_img, _POOLED_NUM_PATCHES, D)  # (B, 64, D)
+
+                # Add camera embedding + patch position embedding
+                feat = feat + self.camera_embed.weight[cam_idx]        # broadcast (D,)
+                feat = feat + self.patch_pos_embed.weight.unsqueeze(0) # (1, 64, D)
+
+                feat = einops.rearrange(feat, "b n d -> n b d")        # (64, B, D)
+
+                # Learnable pos embeds are already added to feat; use zeros for encoder pos_embed
+                pos = torch.zeros(_POOLED_NUM_PATCHES, 1, D, device=feat.device, dtype=feat.dtype)
 
                 tokens.extend(list(feat))
                 pos_embeds.extend(list(pos))
@@ -324,15 +362,17 @@ class FlowMatchingModel(nn.Module):
     ) -> Tensor:                # (B, T, A)  predicted velocity
         B, T, _ = x_t.shape
 
-        a_emb = self.action_in_proj(x_t)                                  # (B, T, D)
-
-        t_emb = _sinusoidal_time_embedding(
+        # Time embedding: sinusoidal → learned (used by AdaLN in every decoder layer)
+        t_sinusoidal = _sinusoidal_time_embedding(
             time, self.config.dim_model,
             self.config.min_period, self.config.max_period,
         )                                                                   # (B, D)
-        t_emb = t_emb[:, None, :].expand(B, T, -1)                        # (B, T, D)
+        temb = self.time_mlp(t_sinusoidal)                                 # (B, D)
 
-        fused = self.action_time_mlp(torch.cat([a_emb, t_emb], dim=-1))   # (B, T, D)
+        # Action-time input fusion
+        a_emb = self.action_in_proj(x_t)                                   # (B, T, D)
+        t_broadcast = temb[:, None, :].expand(B, T, -1)                    # (B, T, D)
+        fused = self.action_time_mlp(torch.cat([a_emb, t_broadcast], dim=-1))  # (B, T, D)
 
         action_pos = self.action_pos_embed.weight[:T].unsqueeze(1)         # (T, 1, D)
 
@@ -341,11 +381,17 @@ class FlowMatchingModel(nn.Module):
         out = self.velocity_decoder(
             x=fused,
             encoder_out=obs_features,
+            temb=temb,
             decoder_pos_embed=action_pos,
             encoder_pos_embed=obs_pos_embeds,
         )                                                                   # (T, B, D)
 
         out = einops.rearrange(out, "t b d -> b t d")                      # (B, T, D)
+
+        # Time-conditioned output (GR00T-style AdaLN on output)
+        scale, shift = self.output_time_proj(temb).chunk(2, dim=-1)        # each (B, D)
+        out = self.output_norm(out) * (1 + scale.unsqueeze(1)) + shift.unsqueeze(1)
+
         return self.action_out_proj(out)                                    # (B, T, A)
 
     # ------------------------------------------------------------------
@@ -417,6 +463,29 @@ class FlowMatchingModel(nn.Module):
 
 
 # ---------------------------------------------------------------------------
+# Adaptive Layer Normalization (DiT-style, time-conditioned)
+# ---------------------------------------------------------------------------
+
+class _AdaLayerNorm(nn.Module):
+    """Adaptive Layer Normalization conditioned on time embedding.
+
+    Instead of learned affine (scale, shift), generates them from temb:
+        scale, shift = Linear(SiLU(temb))
+        output = LayerNorm(x) * (1 + scale) + shift
+    """
+
+    def __init__(self, dim: int):
+        super().__init__()
+        self.norm = nn.LayerNorm(dim, elementwise_affine=False)
+        self.proj = nn.Sequential(nn.SiLU(), nn.Linear(dim, 2 * dim))
+
+    def forward(self, x: Tensor, temb: Tensor) -> Tensor:
+        """x: (T, B, D), temb: (B, D) → output: (T, B, D)."""
+        scale, shift = self.proj(temb).chunk(2, dim=-1)          # each (B, D)
+        return self.norm(x) * (1 + scale.unsqueeze(0)) + shift.unsqueeze(0)
+
+
+# ---------------------------------------------------------------------------
 # Transformer building blocks
 # ---------------------------------------------------------------------------
 
@@ -439,7 +508,7 @@ class _EncoderLayer(nn.Module):
         self.self_attn = nn.MultiheadAttention(D, config.n_heads, dropout=config.dropout)
         self.ff = nn.Sequential(
             nn.Linear(D, config.dim_feedforward),
-            nn.ReLU(),
+            nn.GELU(),
             nn.Dropout(config.dropout),
             nn.Linear(config.dim_feedforward, D),
         )
@@ -464,11 +533,12 @@ class _TransformerDecoder(nn.Module):
         self,
         x: Tensor,
         encoder_out: Tensor,
+        temb: Tensor,
         decoder_pos_embed: Tensor | None = None,
         encoder_pos_embed: Tensor | None = None,
     ) -> Tensor:
         for layer in self.layers:
-            x = layer(x, encoder_out,
+            x = layer(x, encoder_out, temb=temb,
                       decoder_pos_embed=decoder_pos_embed,
                       encoder_pos_embed=encoder_pos_embed)
         return self.norm(x)
@@ -482,13 +552,14 @@ class _DecoderLayer(nn.Module):
         self.cross_attn = nn.MultiheadAttention(D, config.n_heads, dropout=config.dropout)
         self.ff = nn.Sequential(
             nn.Linear(D, config.dim_feedforward),
-            nn.ReLU(),
+            nn.GELU(),
             nn.Dropout(config.dropout),
             nn.Linear(config.dim_feedforward, D),
         )
-        self.norm1 = nn.LayerNorm(D)
-        self.norm2 = nn.LayerNorm(D)
-        self.norm3 = nn.LayerNorm(D)
+        # AdaLN: time-conditioned normalization (DiT-style)
+        self.norm1 = _AdaLayerNorm(D)
+        self.norm2 = _AdaLayerNorm(D)
+        self.norm3 = _AdaLayerNorm(D)
         self.drop1 = nn.Dropout(config.dropout)
         self.drop2 = nn.Dropout(config.dropout)
         self.drop3 = nn.Dropout(config.dropout)
@@ -501,16 +572,17 @@ class _DecoderLayer(nn.Module):
         self,
         x: Tensor,
         encoder_out: Tensor,
+        temb: Tensor,
         decoder_pos_embed: Tensor | None = None,
         encoder_pos_embed: Tensor | None = None,
     ) -> Tensor:
         q = k = self._add_pos(x, decoder_pos_embed)
-        x = self.norm1(x + self.drop1(self.self_attn(q, k, value=x)[0]))
+        x = self.norm1(x + self.drop1(self.self_attn(q, k, value=x)[0]), temb)
 
         x = self.norm2(x + self.drop2(self.cross_attn(
             query=self._add_pos(x, decoder_pos_embed),
             key=self._add_pos(encoder_out, encoder_pos_embed),
             value=encoder_out,
-        )[0]))
+        )[0]), temb)
 
-        return self.norm3(x + self.drop3(self.ff(x)))
+        return self.norm3(x + self.drop3(self.ff(x)), temb)
