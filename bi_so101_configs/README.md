@@ -1,210 +1,302 @@
-# BI-SO101 데이터 수집 가이드
+# BI-SO101 Bimanual Robot — Full Pipeline Guide
 
-BI-SO101 양팔 로봇을 이용한 텔레오퍼레이션 데이터 수집 방법입니다.
+End-to-end guide for the **BI-SO101** dual-arm robot: teleoperation, dataset recording, training, and inference using [LeRobot](https://github.com/huggingface/lerobot).
+
+All configuration files and calibration data are in [`bi_so101_configs/`](https://github.com/XHAKA3456/lerobot/tree/dual-arm-xlerobot/bi_so101_configs).
 
 ---
 
-## 1. 환경 활성화
+## Table of Contents
 
-터미널을 열고 xlerobot 환경에 들어갑니다.
+1. [Installation](#installation)
+2. [Hardware Setup](#hardware-setup)
+3. [Teleoperation](#teleoperation)
+4. [Dataset Recording](#dataset-recording)
+5. [Training](#training)
+6. [Inference](#inference)
+7. [Tips for Good Data](#tips-for-good-data)
+8. [Troubleshooting](#troubleshooting)
 
-▶️ **실행**
+---
+
+## Installation
+
 ```bash
-conda activate xlerobot
+# Clone the dual-arm-xlerobot branch directly
+git clone -b dual-arm-xlerobot https://github.com/XHAKA3456/lerobot.git
+cd lerobot
+
+# Create conda environment
+conda create -n lerobot python=3.10 -y
+conda activate lerobot
+
+# Install with feetech motor support
+pip install -e ".[feetech]"
 ```
 
-## 2. 작업 디렉토리 이동
+> **Hugging Face login** (required for dataset upload and model download):
+> ```bash
+> huggingface-cli login
+> ```
 
-▶️ **실행**
+---
+
+## Hardware Setup
+
+### Robot Overview
+
+| Role | Device | Ports |
+|------|--------|-------|
+| **Follower** (performs the task) | BI-SO101 left arm | `/dev/ttyACM0` |
+| **Follower** | BI-SO101 right arm | `/dev/ttyACM1` |
+| **Leader** (human-operated) | BI-SO101 left arm | `/dev/ttyACM2` |
+| **Leader** | BI-SO101 right arm | `/dev/ttyACM3` |
+
+### Camera Setup
+
+| Camera | Device | Connection |
+|--------|--------|------------|
+| Left | `/dev/video2` | First USB hub |
+| Right | `/dev/video4` | Second USB hub |
+| Front | `/dev/video6` | First USB hub (last to connect) |
+
+### Connection Order — Example
+
+> **This is an example configuration** using 2 leader arms, 2 follower arms, and 3 cameras. Adapt the port assignments to match your own setup.
+
+The OS assigns `/dev/ttyACM*` and `/dev/video*` sequentially based on connection order. Connect devices in a consistent order each time so port assignments stay predictable.
+
+```
+Example setup:
+
+First USB Hub:
+  1. Follower left arm   → /dev/ttyACM0
+  2. Follower right arm  → /dev/ttyACM1
+  3. Left camera         → /dev/video2
+
+Second USB Hub:
+  4. Leader left arm     → /dev/ttyACM2
+  5. Leader right arm    → /dev/ttyACM3
+  6. Right camera        → /dev/video4
+
+First USB Hub (last):
+  7. Front camera        → /dev/video6
+```
+
+Update the `port` and `index_or_path` fields in the config files to match whatever your system assigns.
+
+### USB Permissions
+
+After connecting all devices, grant read/write access to each port:
+
+```bash
+# Grant permission to all serial and video devices at once
+sudo chmod 666 /dev/ttyACM0 /dev/ttyACM1 /dev/ttyACM2 /dev/ttyACM3
+sudo chmod 666 /dev/video2 /dev/video4 /dev/video6
+```
+
+Run `ls /dev/ttyACM*` and `ls /dev/video*` first to confirm which devices are actually present, then chmod only those. No need to replug anything — just run chmod against the correct device nodes.
+
+### Calibration
+
+Calibration files are already included in this repository:
+
+```
+bi_so101_configs/calibration/
+├── bi_so101_follower/
+│   ├── black_left.json
+│   └── black_right.json
+└── bi_so101_leader/
+    ├── black_left.json
+    └── black_right.json
+```
+
+No re-calibration needed unless you replace motors.
+
+---
+
+## Teleoperation
+
+Verify hardware is connected correctly and adjust camera angles before recording.
+
 ```bash
 cd lerobot
+./bi_so101_configs/run_teleoperate.sh
 ```
 
-## 3. 로봇 연결
+The follower arms will mirror the leader arms in real time. Camera feeds will be displayed on screen. Adjust camera positions until all three views are satisfactory.
 
-두 개의 USB 허브와 노트북 USB 포트 하나를 사용합니다. **연결 순서가 중요합니다!**
-
-### 첫 번째 USB 허브
-아래 순서대로 연결:
-1. Follower 왼팔 → `/dev/ttyACM0`
-2. Follower 오른팔 → `/dev/ttyACM1`
-3. 왼쪽 카메라 → `/dev/video0`
-
-### 두 번째 USB 허브
-아래 순서대로 연결:
-1. Leader 왼팔 → `/dev/ttyACM2`
-2. Leader 오른팔 → `/dev/ttyACM3`
-3. 오른쪽 카메라 → `/dev/video2`
-
-### 노트북 직접 연결
-- Front 카메라 → `/dev/video4`
-
-### USB 권한 설정
-
-모든 선을 다 연결한 후 권한을 부여합니다.
-
-▶️ **실행**
-```bash
-chacm
-```
-
-> **참고**:
-> - 선을 하나씩 꽂을 때마다 할 필요 없이, 다 꽂은 뒤 한 번만 실행하면 됩니다.
-> - 선이 하나라도 빠지면 **모든 선을 순서대로 다시 꽂고** `chacm`으로 권한을 다시 부여하세요.
-
-## 4. 수집 환경 구성
-
-로봇과 카메라를 알맞게 배치한 후, 텔레오퍼레이션 모드로 카메라 화면을 확인하면서 카메라 각도를 조절합니다.
-
-▶️ **실행**
-```bash
-cd lerobot && ./bi_so101_configs/run_teleoperate.sh
-```
-
-카메라 화면을 보면서 각 카메라(left, right, front)의 각도를 적절히 조절하세요.
-
-<!-- TODO: 카메라 배치 예시 사진 추가 예정 -->
-
-## 5. 설정 파일 수정
-
-📁 **설정 파일 경로**
-```
-/home/stream/sst_xlerbot/lerobot/bi_so101_configs/scripts/bi_so101_record.yaml
-```
-
-### 필수 수정 항목
-
-**repo_id**와 **root**의 마지막 부분만 변경하면 됩니다.
-
-📝 **예시)** `qualcomm` → `univ`로 변경:
-```yaml
-dataset:
-  repo_id: xhaka3456/univ                                              # 변경
-  root: /home/stream/sst_xlerbot/lerobot/bi_so101_configs/datasets/univ  # 변경
-```
-
-| 항목 | 설명 |
-|------|------|
-| `repo_id` | 데이터셋을 Hugging Face Hub에 저장할 때 사용하는 이름 |
-| `root` | 데이터를 로컬에 저장할 경로 |
-
-### 상황에 따라 변경하는 항목
-
-📝 **설정 내용**
-```yaml
-dataset:
-  episode_time_s: 20    # 한 에피소드당 녹화 시간 (초)
-  reset_time_s: 1       # 에피소드 사이 리셋 대기 시간 (초)
-  num_episodes: 30      # 총 녹화할 에피소드 수
-
-resume: true            # 기존 데이터셋에 이어서 녹화할지 여부
-```
-
-| 파라미터 | 설명 |
-|----------|------|
-| `episode_time_s` | 한 에피소드를 녹화하는 시간 (초). 태스크 수행에 필요한 시간에 맞게 설정 |
-| `reset_time_s` | 에피소드가 끝난 후 다음 에피소드 시작 전 대기 시간 (초). 환경 리셋에 필요한 시간 |
-| `num_episodes` | 수집할 총 에피소드 개수 |
-| `resume` | `true`: 기존 데이터셋에 이어서 녹화 / `false`: 새로 시작. **같은 이름의 데이터셋이 이미 있을 경우에만 `true`로 설정** |
-
-## 6. 데이터 수집 실행
-
-**중요**: 동작을 다 마무리하지 못했는데 에피소드 시간이 끝났을 경우, 그대로 가만히 있다가 다음 에피소드에서 이어서 진행하세요.
-
-▶️ **실행**
-```bash
-cd lerobot && ./bi_so101_configs/run_record.sh
-```
-
-### 중간에 중단했을 경우 (Ctrl+C)
-
-데이터 수집 중에 `Ctrl+C`를 누르면 Hub에는 저장되지 않지만 **로컬에는 데이터셋이 저장됩니다**.
-
-걱정하지 마세요! record 스크립트를 다시 실행하고 설정한 에피소드 수만큼 진행하면, 이전에 올라가지 못한 데이터셋 전체가 함께 Hub에 업로드됩니다.
-
-### 수동으로 Hub에 업로드하기
-
-만약 다른 문제로 로컬에만 저장되고 Hub에 업로드가 안 되는 상황이 발생하면, 아래 명령어로 직접 업로드할 수 있습니다.
-
-▶️ **실행**
-```bash
-python3 /home/stream/sst_xlerbot/lerobot/bi_so101_configs/push_dataset.py \
-    --repo_id "사용자명/데이터셋이름" \
-    --root "로컬데이터셋경로"
-```
-
-📝 **예시**
-```bash
-python3 /home/stream/sst_xlerbot/lerobot/bi_so101_configs/push_dataset.py \
-    --repo_id "xhaka3456/univ" \
-    --root "/home/stream/sst_xlerbot/lerobot/bi_so101_configs/datasets/univ"
-```
-
-> **좋은 데이터를 모으는 방법**은 아래에 자세히 설명되어 있습니다.
-
-## 7. Hub 업로드 대기
-
-설정한 에피소드 수만큼 데이터 수집이 완료되면 자동으로 Hugging Face Hub에 업로드됩니다.
-
-- 소요 시간: 약 **10분** 정도
-- 터미널에 로딩 화면이 표시됩니다
-
-## 8. 업로드 확인
-
-터미널의 로딩이 완료되면:
-
-1. Hub 확인: https://huggingface.co/xhaka3456 에 접속
-2. 설정한 `repo_id` 이름의 데이터셋이 있는지 확인
-3. 로컬 `root` 경로의 파일들과 Hub의 파일들이 일치하는지 확인
-
-## 9. 완료 후
-
-데이터가 Hub에 정상적으로 저장된 것을 확인하면 **harvey에게 연락**해주세요.
-데이터 학습은 harvey가 진행합니다.
+**Config:** `bi_so101_configs/scripts/bi_so101_teleoperate.yaml`
 
 ---
 
-## 좋은 데이터를 모으는 방법
+## Dataset Recording
 
-### 1. 동작을 끊어서 가져간다
+### 1. Edit the config file
 
-단순하게 인형을 집는 것이 아니라, 동작을 단계별로 나눠서 진행해야 합니다.
+**`bi_so101_configs/scripts/bi_so101_record.yaml`**
 
-**예시: 인형 집기 태스크**
-1. 로봇 그리퍼를 인형 위에 위치시킨다
-2. 집기 좋은 각도로 그리퍼를 돌린다
-3. 그리퍼를 최대한 크게 벌린다
-4. 인형을 깊숙하게 넣는다
-5. 그리퍼로 인형을 집는다
-6. 박스에 가져다 놓는다
+The minimum required changes are `repo_id` and `root`:
 
-이렇게 동작을 끊어서 진행해야 좋은 데이터를 수집할 수 있습니다.
+```yaml
+dataset:
+  repo_id: your_hf_username/your_dataset_name   # ← change this
+  root: /path/to/your/datasets/your_dataset_name # ← change this
+  single_task: "Describe the task here"
+  episode_time_s: 20    # seconds per episode
+  reset_time_s: 5       # reset window between episodes
+  num_episodes: 30      # total episodes to collect
 
-### 2. 빛 환경에 주의한다
+resume: false           # set true to continue an existing dataset
+```
 
-이 모델은 이미지로만 판단하기 때문에 **빛에 영향을 많이 받습니다**.
+| Parameter | Description |
+|-----------|-------------|
+| `repo_id` | Hugging Face dataset ID (`username/name`) |
+| `root` | Local directory to save the dataset |
+| `episode_time_s` | Duration of each episode in seconds |
+| `reset_time_s` | Time between episodes to reset the environment |
+| `num_episodes` | Total number of episodes to record |
+| `resume` | `true` to append to an existing dataset, `false` to start fresh |
 
-- 빛이 있을 때와 없을 때
-- 그림자가 어느 방향으로 지는지
+### 2. Run
 
-이런 요소들에 따라 로봇의 판단이 달라집니다. 다양한 환경에서 다양한 데이터셋을 모으면 문제없지만, 그럴 수 없는 상황이라면 **변수가 적은 물리적 장소**를 찾아야 합니다.
+```bash
+cd lerobot
+./bi_so101_configs/run_record.sh
+```
 
-### 3. 물체를 다양한 위치와 각도로 배치한다
+The dataset will automatically upload to Hugging Face Hub once all episodes are collected (~10 min for upload).
 
-계속 비슷한 위치, 비슷한 각도로 물체를 두면 데이터의 다양성을 잃게 됩니다.
+### Interrupted by Ctrl+C?
 
-- ❌ 특정 구역에서만 성능이 나옴
-- ✅ 다양한 위치 + 다양한 각도 = 일반화된 성능
+No problem — data is saved **locally** even if upload doesn't complete. Re-run the script and finish the remaining episodes; all local data will be uploaded together at the end.
 
-매 에피소드마다 물체의 위치와 각도를 바꿔가며 데이터를 수집하세요.
+### Manual upload
+
+```bash
+python3 bi_so101_configs/push_dataset.py \
+    --repo_id "your_hf_username/your_dataset_name" \
+    --root "/path/to/your/datasets/your_dataset_name"
+```
 
 ---
 
-## 문제 해결
+## Training
 
-### 포트 권한 오류
+> **⚠️ Training cannot be run on Rubik Pi or other edge devices.** A GPU server is required. Upload your dataset to Hugging Face Hub first, then run training on a machine with a CUDA-capable GPU.
 
-▶️ **실행**
+Training uses the standard LeRobot training pipeline. Refer to the official documentation:
+
+👉 **[LeRobot Training Guide](https://github.com/huggingface/lerobot?tab=readme-ov-file#train-your-own-policy)**
+
+Example (ACT policy on a GPU server):
+
 ```bash
-chacm
+lerobot-train \
+  --policy.type=act \
+  --dataset.repo_id=your_hf_username/your_dataset_name \
+  --output_dir=outputs/train/your_run_name
 ```
+
+The trained model will be saved to `output_dir` and can be pushed to Hugging Face Hub with `--hub_id` for later download during inference.
+
+---
+
+## Inference
+
+### 1. Download the trained model
+
+```bash
+huggingface-cli download your_hf_username/your_model_name \
+    --local-dir bi_so101_configs/models/your_model_name
+```
+
+### 2. Edit the config file
+
+**`bi_so101_configs/scripts/bi_so101_infer.yaml`**
+
+```yaml
+policy:
+  type: act
+  pretrained_path: /path/to/bi_so101_configs/models/your_model_name  # ← change this
+  device: cuda   # or "cpu"
+
+dataset_repo_id: your_hf_username/your_dataset_name  # ← change this
+```
+
+### 3. Run
+
+```bash
+cd lerobot
+./bi_so101_configs/run_infer.sh
+```
+
+The follower robot will execute the learned policy autonomously.
+
+> **On Rubik Pi:** activate the environment first with `source ~/miniconda3/bin/activate lerobot`
+
+### Record inference episodes (optional)
+
+To record the robot's autonomous behavior as a dataset for evaluation:
+
+```bash
+./bi_so101_configs/run_record_policy.sh
+```
+
+Or with a custom policy:
+
+```bash
+./bi_so101_configs/run_record_policy.sh \
+    --policy.path=your_hf_username/your_model_name \
+    --policy.n_action_steps=50
+```
+
+---
+
+## Tips for Good Data
+
+### Set up a clean background
+
+Point at least one camera toward a **plain wall** with no moving objects. Remove anything from the frame that might shift between episodes — it introduces noise the model can't reason about.
+
+### Break motions into deliberate steps
+
+Avoid rushing through the task. Decompose the movement into clear stages:
+
+1. Move the gripper **above** the target object
+2. Rotate to a comfortable grasping angle
+3. Open the gripper fully
+4. Lower and close around the object
+5. Transport and release
+
+Deliberate, step-by-step motions produce cleaner action trajectories and improve policy learning.
+
+### Control lighting
+
+Vision-based policies are sensitive to lighting. Shadows shifting between episodes, or the difference between morning and afternoon light, can degrade performance significantly. Record in a **consistent lighting environment**, and if possible avoid direct sunlight through windows.
+
+### Vary object position every episode
+
+Placing the object in the exact same spot every time leads to a policy that only works at that exact position. Shuffle the object's location and orientation each episode to build generalization.
+
+---
+
+## Troubleshooting
+
+### Port permission denied
+```bash
+sudo chmod 666 /dev/ttyACM* /dev/video*
+```
+
+### Wrong device assigned to port
+Disconnect all cables and reconnect **in order** from step 1 of [Hardware Setup](#hardware-setup).
+
+### Dataset directory already exists
+Either delete the local dataset directory, or set `resume: true` in the config to append to it.
+
+### Model not found during inference
+Verify the `pretrained_path` in `bi_so101_infer.yaml` matches the directory where the model was downloaded.
+
+### Upload stuck / slow
+Large datasets can take 10–30 minutes to upload. If it fails, use `push_dataset.py` for a manual retry.
