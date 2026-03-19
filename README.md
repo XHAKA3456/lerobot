@@ -1,5 +1,7 @@
 # BI-SO101 Bimanual Robot — Full Pipeline Guide
 
+> 🇰🇷 [한국어 버전 보기](README_KO.md)
+
 End-to-end guide for the **BI-SO101** dual-arm robot: teleoperation, dataset recording, training, and inference using [LeRobot](https://github.com/huggingface/lerobot).
 
 All configuration files and calibration data are in [`bi_so101_configs/`](https://github.com/XHAKA3456/lerobot/tree/dual-arm-xlerobot/bi_so101_configs).
