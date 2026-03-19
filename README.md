@@ -64,6 +64,8 @@ pip install -e ".[feetech]"
 
 ### Connection Order — Example
 
+> **⚠️ Camera indices and serial ports vary by machine.** Run `ls /dev/video*` and `ls /dev/ttyACM*` to confirm what's assigned on your system, then update the config files accordingly.
+
 > **This is an example configuration** using 2 leader arms, 2 follower arms, and 3 cameras. Adapt the port assignments to match your own setup.
 
 The OS assigns `/dev/ttyACM*` and `/dev/video*` sequentially based on connection order. Connect devices in a consistent order each time so port assignments stay predictable.
