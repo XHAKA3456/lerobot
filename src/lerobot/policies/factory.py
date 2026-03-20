@@ -31,6 +31,7 @@ from lerobot.envs.utils import env_to_policy_features
 from lerobot.policies.act.configuration_act import ACTConfig
 from lerobot.policies.diffusion.configuration_diffusion import DiffusionConfig
 from lerobot.policies.flowmatching.configuration_flowmatching import FlowMatchingConfig
+from lerobot.policies.flowmatching_tc.configuration_flowmatching_tc import FlowMatchingTCConfig
 from lerobot.policies.groot.configuration_groot import GrootConfig
 from lerobot.policies.pi0.configuration_pi0 import PI0Config
 from lerobot.policies.pi05.configuration_pi05 import PI05Config
@@ -88,6 +89,10 @@ def get_policy_class(name: str) -> type[PreTrainedPolicy]:
         from lerobot.policies.flowmatching.modeling_flowmatching import FlowMatchingPolicy
 
         return FlowMatchingPolicy
+    elif name == "flowmatching_tc":
+        from lerobot.policies.flowmatching_tc.modeling_flowmatching_tc import FlowMatchingTCPolicy
+
+        return FlowMatchingTCPolicy
     elif name == "pi0":
         from lerobot.policies.pi0.modeling_pi0 import PI0Policy
 
@@ -145,6 +150,8 @@ def make_policy_config(policy_type: str, **kwargs) -> PreTrainedConfig:
         return VQBeTConfig(**kwargs)
     elif policy_type == "flowmatching":
         return FlowMatchingConfig(**kwargs)
+    elif policy_type == "flowmatching_tc":
+        return FlowMatchingTCConfig(**kwargs)
     elif policy_type == "pi0":
         return PI0Config(**kwargs)
     elif policy_type == "pi05":
@@ -325,6 +332,14 @@ def make_pre_post_processors(
         from lerobot.policies.smolvla.processor_smolvla import make_smolvla_pre_post_processors
 
         processors = make_smolvla_pre_post_processors(
+            config=policy_cfg,
+            dataset_stats=kwargs.get("dataset_stats"),
+        )
+
+    elif isinstance(policy_cfg, FlowMatchingTCConfig):
+        from lerobot.policies.flowmatching_tc.processor_flowmatching_tc import make_flowmatching_tc_pre_post_processors
+
+        processors = make_flowmatching_tc_pre_post_processors(
             config=policy_cfg,
             dataset_stats=kwargs.get("dataset_stats"),
         )
