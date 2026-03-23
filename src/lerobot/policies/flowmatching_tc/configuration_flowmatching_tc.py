@@ -33,8 +33,8 @@ class FlowMatchingTCConfig(PreTrainedConfig):
 
     # Input/output
     n_obs_steps: int = 1
-    chunk_size: int = 100
-    n_action_steps: int = 100
+    chunk_size: int = 20
+    n_action_steps: int = 20
 
     normalization_mapping: dict[str, NormalizationMode] = field(
         default_factory=lambda: {
@@ -76,7 +76,7 @@ class FlowMatchingTCConfig(PreTrainedConfig):
     optimizer_weight_decay: float = 1e-4
 
     # LR scheduler
-    scheduler_warmup_steps: int = 1000
+    scheduler_warmup_steps: int = 5000
     scheduler_decay_steps: int = 100000
     scheduler_decay_lr: float = 1e-6
 

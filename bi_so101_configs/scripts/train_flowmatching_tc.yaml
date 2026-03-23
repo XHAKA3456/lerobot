@@ -6,13 +6,33 @@
 
 # ---- Dataset ----
 dataset:
-  repo_id: xhaka3456/aic_ur5e_sim
-  root: /home/sst/openarm/src/openarm_lerobot/datasets/aic_ur5e_sim
+  repo_id: xhaka3456/aic_ur5e_sim_v3
+  root: /home/sst/lerobot_datasets/aic_ur5e_sim_v3
   episodes: null
   video_backend: torchcodec
+  image_transforms:
+    enable: true
+    max_num_transforms: 2
+    random_order: false
+    tfs:
+      brightness:
+        weight: 1.0
+        type: ColorJitter
+        kwargs:
+          brightness: [0.8, 1.2]
+      contrast:
+        weight: 1.0
+        type: ColorJitter
+        kwargs:
+          contrast: [0.8, 1.2]
+      saturation:
+        weight: 0.5
+        type: ColorJitter
+        kwargs:
+          saturation: [0.8, 1.2]
 
 # ---- Output ----
-output_dir: outputs/train/flowmatching_tc_aic_ur5e_sim
+output_dir: outputs/train/flowmatching_tc_aic_ur5e_sim3
 job_name: flowmatching_tc_aic_ur5e_sim
 
 # ---- Policy ----
@@ -20,8 +40,8 @@ policy:
   type: flowmatching_tc
 
   n_obs_steps: 1
-  chunk_size: 100
-  n_action_steps: 100
+  chunk_size: 20
+  n_action_steps: 20
 
   # Task conditioning
   num_tasks: 3
@@ -78,7 +98,7 @@ policy:
   optimizer_weight_decay: 1.0e-4
 
   # LR Scheduler (CosineDecayWithWarmup)
-  scheduler_warmup_steps: 1000
+  scheduler_warmup_steps: 5000
   scheduler_decay_steps: 100000
   scheduler_decay_lr: 1.0e-6
 
@@ -87,12 +107,12 @@ policy:
 
   # Hub upload
   push_to_hub: true
-  repo_id: xhaka3456/flowmatching_tc_aic_ur5e_sim
+  repo_id: xhaka3456/flowmatching_tc_aic_ur5e_sim3
   private: false
 
 # ---- Training loop ----
-batch_size: 32
-steps: 150000
+batch_size: 24
+steps: 140000
 num_workers: 18
 
 log_freq: 200
