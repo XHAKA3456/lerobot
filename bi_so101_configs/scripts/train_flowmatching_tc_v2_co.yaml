@@ -1,0 +1,143 @@
+# Flow Matching Task-Conditioned Policy V2 Co — Training Config for aic_ur5e_sim
+#
+# Usage:
+#   python -m lerobot.scripts.lerobot_train \
+#     --config_path bi_so101_configs/scripts/train_flowmatching_tc_v2_co.yaml
+
+dataset:
+  repo_id: xhaka3456/aic_ur5e_sim_v3_tc_v2_co
+  root: /home/sst/lerobot_datasets/aic_ur5e_sim_v3_tc_v2_co
+  episodes: null
+  video_backend: torchcodec
+  image_transforms:
+    enable: true
+    max_num_transforms: 2
+    random_order: false
+    tfs:
+      brightness:
+        weight: 1.0
+        type: ColorJitter
+        kwargs:
+          brightness: [0.8, 1.2]
+      contrast:
+        weight: 1.0
+        type: ColorJitter
+        kwargs:
+          contrast: [0.8, 1.2]
+      saturation:
+        weight: 0.5
+        type: ColorJitter
+        kwargs:
+          saturation: [0.8, 1.2]
+
+output_dir: outputs/train/flowmatching_tc_v2_co_aic_ur5e_sim3
+job_name: flowmatching_tc_v2_co_aic_ur5e_sim
+
+policy:
+  type: flowmatching_tc_v2_co
+
+  n_obs_steps: 4
+  chunk_size: 12
+  n_action_steps: 4
+  num_tasks: 3
+
+  input_features:
+    observation.state:
+      type: STATE
+      shape: [26]
+    observation.images.left_camera:
+      type: VISUAL
+      shape: [3, 480, 640]
+    observation.images.center_camera:
+      type: VISUAL
+      shape: [3, 480, 640]
+    observation.images.right_camera:
+      type: VISUAL
+      shape: [3, 480, 640]
+    observation.images.center_camera_roi:
+      type: VISUAL
+      shape: [3, 160, 160]
+    observation.images.right_camera_roi:
+      type: VISUAL
+      shape: [3, 160, 160]
+
+  output_features:
+    action:
+      type: ACTION
+      shape: [7]
+
+  normalization_mapping:
+    VISUAL: MEAN_STD
+    STATE: MEAN_STD
+    ACTION: MEAN_STD
+
+  dinov2_model_name: facebook/dinov2-base
+  image_size: 224
+  roi_image_size: 160
+  roi_feature_names:
+    - observation.images.center_camera_roi
+    - observation.images.right_camera_roi
+  use_roi_branch: true
+  use_roi_encoder_shared_backbone: true
+  roi_patch_pool_kernel: 2
+  roi_crop_size: 160
+
+  ft_feature_dim: 6
+  use_force_history: true
+  use_force_derivative: true
+  use_action_history: false
+
+  dim_model: 512
+  n_heads: 8
+  dim_feedforward: 2048
+  dropout: 0.1
+  n_obs_encoder_layers: 8
+  n_velocity_layers: 8
+  temporal_history_layers: 2
+
+  num_inference_steps: 4
+  time_sampling_beta_alpha: 1.5
+  time_sampling_beta_beta: 1.0
+  time_sampling_scale: 0.999
+  time_sampling_offset: 0.001
+  min_period: 0.004
+  max_period: 4.0
+
+  num_phase_classes: 4
+  num_contact_classes: 3
+  aux_phase_loss_weight: 0.5
+  aux_contact_loss_weight: 0.5
+  aux_relative_loss_weight: 1.0
+
+  action_mode: delta_pose
+  near_port_loss_weight: 2.0
+  contact_loss_weight: 2.0
+
+  optimizer_lr: 1.0e-4
+  optimizer_weight_decay: 1.0e-4
+  scheduler_warmup_steps: 1000
+  scheduler_decay_steps: 100000
+  scheduler_decay_lr: 1.0e-6
+
+  device: cuda
+  use_amp: true
+
+  push_to_hub: false
+  repo_id: xhaka3456/flowmatching_tc_v2_co_aic_ur5e_sim3
+  private: true
+
+batch_size: 12
+steps: 140000
+num_workers: 12
+
+log_freq: 200
+save_checkpoint: true
+save_freq: 10000
+eval_freq: 0
+
+seed: 42
+use_policy_training_preset: true
+
+wandb:
+  enable: false
+  project: aic_ur5e_flowmatching_tc_v2_co
