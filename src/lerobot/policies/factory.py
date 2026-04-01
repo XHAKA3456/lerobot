@@ -32,6 +32,9 @@ from lerobot.policies.act.configuration_act import ACTConfig
 from lerobot.policies.diffusion.configuration_diffusion import DiffusionConfig
 from lerobot.policies.flowmatching.configuration_flowmatching import FlowMatchingConfig
 from lerobot.policies.flowmatching_tc.configuration_flowmatching_tc import FlowMatchingTCConfig
+from lerobot.policies.flowmatching_tc_v2_cla.configuration_flowmatching_tc_v2_cla import (
+    FlowMatchingTCV2ClaConfig,
+)
 from lerobot.policies.flowmatching_tc_v2_co.configuration_flowmatching_tc_v2_co import (
     FlowMatchingTCV2CoConfig,
 )
@@ -96,6 +99,10 @@ def get_policy_class(name: str) -> type[PreTrainedPolicy]:
         from lerobot.policies.flowmatching_tc.modeling_flowmatching_tc import FlowMatchingTCPolicy
 
         return FlowMatchingTCPolicy
+    elif name == "flowmatching_tc_v2_cla":
+        from lerobot.policies.flowmatching_tc_v2_cla.modeling_flowmatching_tc_v2_cla import FlowMatchingTCV2ClaPolicy
+
+        return FlowMatchingTCV2ClaPolicy
     elif name == "flowmatching_tc_v2_co":
         from lerobot.policies.flowmatching_tc_v2_co.modeling_flowmatching_tc_v2_co import (
             FlowMatchingTCV2CoPolicy,
@@ -161,6 +168,8 @@ def make_policy_config(policy_type: str, **kwargs) -> PreTrainedConfig:
         return FlowMatchingConfig(**kwargs)
     elif policy_type == "flowmatching_tc":
         return FlowMatchingTCConfig(**kwargs)
+    elif policy_type == "flowmatching_tc_v2_cla":
+        return FlowMatchingTCV2ClaConfig(**kwargs)
     elif policy_type == "flowmatching_tc_v2_co":
         return FlowMatchingTCV2CoConfig(**kwargs)
     elif policy_type == "pi0":
@@ -347,6 +356,15 @@ def make_pre_post_processors(
             dataset_stats=kwargs.get("dataset_stats"),
         )
 
+    elif isinstance(policy_cfg, FlowMatchingTCV2ClaConfig):
+        from lerobot.policies.flowmatching_tc_v2_cla.processor_flowmatching_tc_v2_cla import (
+            make_flowmatching_tc_v2_cla_pre_post_processors,
+        )
+
+        processors = make_flowmatching_tc_v2_cla_pre_post_processors(
+            config=policy_cfg,
+            dataset_stats=kwargs.get("dataset_stats"),
+        )
     elif isinstance(policy_cfg, FlowMatchingTCConfig):
         from lerobot.policies.flowmatching_tc.processor_flowmatching_tc import make_flowmatching_tc_pre_post_processors
 

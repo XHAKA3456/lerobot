@@ -1,0 +1,156 @@
+# FlowMatchingTC V2 Cla — Training Config
+#
+# Usage:
+#   python -m lerobot.scripts.lerobot_train \
+#     --config_path bi_so101_configs/scripts/train_flowmatching_tc_v2_cla.yaml
+
+# ---- Dataset ----
+dataset:
+  repo_id: xhaka3456/aic_ur5e_sim_v3_v2_cla
+  root: /home/sst/lerobot_datasets/aic_ur5e_sim_v3_v2_cla
+  episodes: null
+  video_backend: torchcodec
+  image_transforms:
+    enable: true
+    max_num_transforms: 2
+    random_order: false
+    tfs:
+      brightness:
+        weight: 1.0
+        type: ColorJitter
+        kwargs:
+          brightness: [0.8, 1.2]
+      contrast:
+        weight: 1.0
+        type: ColorJitter
+        kwargs:
+          contrast: [0.8, 1.2]
+      saturation:
+        weight: 0.5
+        type: ColorJitter
+        kwargs:
+          saturation: [0.8, 1.2]
+
+# ---- Output ----
+output_dir: outputs/train/flowmatching_tc_v2_cla_aic_ur5e_sim3
+job_name: flowmatching_tc_v2_cla_aic_ur5e_sim
+
+# ---- Policy ----
+policy:
+  type: flowmatching_tc_v2_cla
+
+  n_obs_steps: 4
+  chunk_size: 10
+  n_action_steps: 3
+  num_tasks: 3
+
+  # ---- Input features ----
+  input_features:
+    observation.state:
+      type: STATE
+      shape: [26]
+    observation.images.left_camera:
+      type: VISUAL
+      shape: [3, 480, 640]
+    observation.images.center_camera:
+      type: VISUAL
+      shape: [3, 480, 640]
+    observation.images.right_camera:
+      type: VISUAL
+      shape: [3, 480, 640]
+
+  # ---- Output features ----
+  output_features:
+    action:
+      type: ACTION
+      shape: [6]
+
+  normalization_mapping:
+    VISUAL: MEAN_STD
+    STATE: MEAN_STD
+    ACTION: MEAN_STD
+
+  # Vision backbone: DINOv2 ViT-L/14 + LoRA
+  dinov2_model_name: facebook/dinov2-large
+  dinov2_dim: 1024
+  dinov2_image_size: 224
+  dinov2_num_patches: 256
+  multiscale_layers: [6, 12, 18, 24]
+  lora_rank: 32
+  lora_alpha: 32.0
+
+  # Temporal history
+  state_dim: 20
+  ft_dim: 6
+  use_force_derivative: true
+
+  # Model dimensions
+  dim_model: 768
+  n_heads: 12
+  dim_feedforward: 3072
+  dropout: 0.1
+  n_obs_encoder_layers: 6
+  n_decoder_layers: 12
+
+  # Action
+  action_dim: 6
+
+  # CFG
+  cfg_dropout_prob: 0.1
+  cfg_guidance_weight: 1.1
+
+  # Auxiliary heads
+  num_phase_classes: 4
+  num_contact_classes: 3
+  aux_phase_loss_weight: 0.3
+  aux_contact_loss_weight: 0.3
+
+  # Phase-weighted loss
+  phase_weight_approach: 1.0
+  phase_weight_align: 3.0
+  phase_weight_insert: 3.0
+  phase_weight_recover: 2.0
+
+  # Flow matching
+  num_inference_steps: 4
+  time_sampling_beta_alpha: 1.5
+  time_sampling_beta_beta: 1.0
+  time_sampling_scale: 0.999
+  time_sampling_offset: 0.001
+  min_period: 0.004
+  max_period: 4.0
+
+  # Temporal ensemble
+  temporal_ensemble_lambda: 0.01
+
+  # Optimizer
+  optimizer_lr: 1.0e-4
+  optimizer_weight_decay: 1.0e-4
+  scheduler_warmup_steps: 5000
+  scheduler_decay_steps: 100000
+  scheduler_decay_lr: 1.0e-6
+
+  device: cuda
+  use_amp: true
+
+  push_to_hub: false
+  repo_id: xhaka3456/flowmatching_tc_v2_cla_aic_ur5e_sim3
+  private: true
+
+# ---- Training loop ----
+batch_size: 8
+steps: 140000
+num_workers: 8
+
+log_freq: 200
+save_checkpoint: true
+save_freq: 10000
+eval_freq: 0
+
+seed: 42
+use_policy_training_preset: true
+
+# ---- W&B ----
+wandb:
+  enable: false
+  project: aic_ur5e_flowmatching_tc_v2_cla
