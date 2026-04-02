@@ -427,7 +427,7 @@ class FlowMatchingTCV2ClaModel(nn.Module):
 
         for cam_idx, img in enumerate(images):
             if img.ndim == 5:
-                img = img[:, 0]  # take current frame only
+                img = img[:, -1]  # take current (most recent) frame
             B = img.shape[0]
 
             img_resized = F.interpolate(
