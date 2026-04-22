@@ -1,0 +1,112 @@
+# Flow Matching Task-Conditioned V0 — Training Config for aic_ur5e_sim_v3_tc_v0
+#
+# Usage:
+#   conda run -n openarm_lerobot python -m lerobot.scripts.lerobot_train \
+#     --config_path /home/sst/lerobot_xhaka3456/bi_so101_configs/scripts/train_flowmatching_tc_v0.yaml
+
+dataset:
+  repo_id: local/aic_ur5e_sim_v3_tc_v0
+  root: /home/sst/lerobot_datasets/aic_ur5e_sim_v3_tc_v0
+  episodes: null
+  video_backend: torchcodec
+  image_transforms:
+    enable: true
+    max_num_transforms: 2
+    random_order: false
+    tfs:
+      brightness:
+        weight: 1.0
+        type: ColorJitter
+        kwargs:
+          brightness: [0.8, 1.2]
+      contrast:
+        weight: 1.0
+        type: ColorJitter
+        kwargs:
+          contrast: [0.8, 1.2]
+      saturation:
+        weight: 0.5
+        type: ColorJitter
+        kwargs:
+          saturation: [0.8, 1.2]
+
+output_dir: outputs/train/flowmatching_tc_v0_aic_ur5e_sim3
+job_name: flowmatching_tc_v0_aic_ur5e_sim
+
+policy:
+  type: flowmatching_tc_v0
+
+  n_obs_steps: 4
+  chunk_size: 20
+  n_action_steps: 8
+  num_tasks: 3
+  use_latest_image_only: true
+
+  input_features:
+    observation.state:
+      type: STATE
+      shape: [26]
+    observation.images.left_camera:
+      type: VISUAL
+      shape: [3, 480, 640]
+    observation.images.center_camera:
+      type: VISUAL
+      shape: [3, 480, 640]
+    observation.images.right_camera:
+      type: VISUAL
+      shape: [3, 480, 640]
+
+  output_features:
+    action:
+      type: ACTION
+      shape: [6]
+
+  normalization_mapping:
+    VISUAL: MEAN_STD
+    STATE: MEAN_STD
+    ACTION: MEAN_STD
+
+  dinov2_model_name: facebook/dinov2-base
+  dim_model: 512
+  n_heads: 8
+  dim_feedforward: 3200
+  dropout: 0.1
+  n_obs_encoder_layers: 6
+  n_velocity_layers: 6
+
+  num_inference_steps: 10
+  time_sampling_beta_alpha: 1.5
+  time_sampling_beta_beta: 1.0
+  time_sampling_scale: 0.999
+  time_sampling_offset: 0.001
+  min_period: 0.004
+  max_period: 4.0
+
+  optimizer_lr: 1.0e-4
+  optimizer_weight_decay: 1.0e-4
+  scheduler_warmup_steps: 5000
+  scheduler_decay_steps: 100000
+  scheduler_decay_lr: 1.0e-6
+
+  device: cuda
+  use_amp: true
+
+  push_to_hub: false
+  repo_id: xhaka3456/flowmatching_tc_v0_aic_ur5e_sim3
+  private: true
+
+batch_size: 24
+steps: 140000
+num_workers: 12
+
+log_freq: 200
+save_checkpoint: true
+save_freq: 10000
+eval_freq: 0
+
+seed: 42
+use_policy_training_preset: true
+
+wandb:
+  enable: false
+  project: aic_ur5e_flowmatching_tc_v0

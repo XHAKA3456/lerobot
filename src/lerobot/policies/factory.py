@@ -32,6 +32,7 @@ from lerobot.policies.act.configuration_act import ACTConfig
 from lerobot.policies.diffusion.configuration_diffusion import DiffusionConfig
 from lerobot.policies.flowmatching.configuration_flowmatching import FlowMatchingConfig
 from lerobot.policies.flowmatching_tc.configuration_flowmatching_tc import FlowMatchingTCConfig
+from lerobot.policies.flowmatching_tc_v0.configuration_flowmatching_tc_v0 import FlowMatchingTCV0Config
 from lerobot.policies.flowmatching_tc_v2_cla.configuration_flowmatching_tc_v2_cla import (
     FlowMatchingTCV2ClaConfig,
 )
@@ -99,6 +100,10 @@ def get_policy_class(name: str) -> type[PreTrainedPolicy]:
         from lerobot.policies.flowmatching_tc.modeling_flowmatching_tc import FlowMatchingTCPolicy
 
         return FlowMatchingTCPolicy
+    elif name == "flowmatching_tc_v0":
+        from lerobot.policies.flowmatching_tc_v0.modeling_flowmatching_tc_v0 import FlowMatchingTCV0Policy
+
+        return FlowMatchingTCV0Policy
     elif name == "flowmatching_tc_v2_cla":
         from lerobot.policies.flowmatching_tc_v2_cla.modeling_flowmatching_tc_v2_cla import FlowMatchingTCV2ClaPolicy
 
@@ -168,6 +173,8 @@ def make_policy_config(policy_type: str, **kwargs) -> PreTrainedConfig:
         return FlowMatchingConfig(**kwargs)
     elif policy_type == "flowmatching_tc":
         return FlowMatchingTCConfig(**kwargs)
+    elif policy_type == "flowmatching_tc_v0":
+        return FlowMatchingTCV0Config(**kwargs)
     elif policy_type == "flowmatching_tc_v2_cla":
         return FlowMatchingTCV2ClaConfig(**kwargs)
     elif policy_type == "flowmatching_tc_v2_co":
@@ -369,6 +376,15 @@ def make_pre_post_processors(
         from lerobot.policies.flowmatching_tc.processor_flowmatching_tc import make_flowmatching_tc_pre_post_processors
 
         processors = make_flowmatching_tc_pre_post_processors(
+            config=policy_cfg,
+            dataset_stats=kwargs.get("dataset_stats"),
+        )
+    elif isinstance(policy_cfg, FlowMatchingTCV0Config):
+        from lerobot.policies.flowmatching_tc_v0.processor_flowmatching_tc_v0 import (
+            make_flowmatching_tc_v0_pre_post_processors,
+        )
+
+        processors = make_flowmatching_tc_v0_pre_post_processors(
             config=policy_cfg,
             dataset_stats=kwargs.get("dataset_stats"),
         )
