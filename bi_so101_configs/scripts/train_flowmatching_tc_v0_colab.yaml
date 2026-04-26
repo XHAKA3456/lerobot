@@ -91,17 +91,17 @@ policy:
   device: cuda
   use_amp: true
 
-  push_to_hub: false
+  push_to_hub: true
   repo_id: xhaka3456/flowmatching_tc_v0_aic_ur5e_sim3
   private: true
 
-batch_size: 8
-steps: 140000
-num_workers: 2
+batch_size: 24
+steps: 120000
+num_workers: 12
 
 log_freq: 200
 save_checkpoint: true
-save_freq: 5000
+save_freq: 50000
 eval_freq: 0
 
 seed: 42
