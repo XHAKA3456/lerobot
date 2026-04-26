@@ -30,8 +30,9 @@ dataset:
         kwargs:
           saturation: [0.8, 1.2]
 
-output_dir: /content/outputs/train/flowmatching_tc_v0_aic_ur5e_sim3_5k
-job_name: flowmatching_tc_v0_aic_ur5e_sim_colab_5k
+output_dir: /content/outputs/train/flowmatching_tc_v0_aic_ur5e_sim3_30k
+job_name: flowmatching_tc_v0_aic_ur5e_sim_colab_30k
+resume: false
 
 policy:
   type: flowmatching_tc_v0
@@ -84,8 +85,8 @@ policy:
 
   optimizer_lr: 1.0e-4
   optimizer_weight_decay: 1.0e-4
-  scheduler_warmup_steps: 500
-  scheduler_decay_steps: 5000
+  scheduler_warmup_steps: 3000
+  scheduler_decay_steps: 30000
   scheduler_decay_lr: 1.0e-6
 
   device: cuda
@@ -96,12 +97,12 @@ policy:
   private: true
 
 batch_size: 24
-steps: 5000
+steps: 30000
 num_workers: 12
 
 log_freq: 200
 save_checkpoint: true
-save_freq: 5000
+save_freq: 10000
 eval_freq: 0
 
 seed: 42
