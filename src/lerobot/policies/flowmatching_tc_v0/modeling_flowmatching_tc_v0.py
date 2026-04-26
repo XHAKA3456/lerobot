@@ -20,13 +20,17 @@ Extends FlowMatching with a learnable task embedding prepended to the observatio
 encoder input, enabling multi-task conditioning (e.g., SFP vs SC).
 """
 
+import copy
 import math
 from collections import deque
 from itertools import chain
+from pathlib import Path
 
 import einops
 import torch
 import torch.nn.functional as F  # noqa: N812
+from huggingface_hub.constants import SAFETENSORS_SINGLE_FILE
+from safetensors.torch import save_model as save_model_as_safetensor
 from torch import Tensor, nn
 from transformers import AutoModel
 
@@ -86,6 +90,14 @@ class FlowMatchingTCV0Policy(PreTrainedPolicy):
         self.config = config
         self.model = FlowMatchingTCV0Model(config)
         self.reset()
+
+    def _save_pretrained(self, save_directory: Path) -> None:
+        # CUDA GRUs may flatten weights into shared storages that safetensors refuses to serialize.
+        # Save a CPU clone so checkpointing stays V0-local and does not mutate the live training model.
+        self.config._save_pretrained(save_directory)
+        model_to_save = self.module if hasattr(self, "module") else self
+        cpu_clone = copy.deepcopy(model_to_save).to("cpu").eval()
+        save_model_as_safetensor(cpu_clone, str(save_directory / SAFETENSORS_SINGLE_FILE))
 
     def get_optim_params(self) -> list:
         return [{"params": [p for p in self.parameters() if p.requires_grad]}]

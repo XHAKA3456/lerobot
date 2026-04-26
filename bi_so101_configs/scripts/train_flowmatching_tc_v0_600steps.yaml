@@ -1,12 +1,13 @@
-# Flow Matching Task-Conditioned V0 — Colab Full Training Config
+# Flow Matching Task-Conditioned V0 — Local 600-step Validation Config
 #
 # Usage:
-#   python -m lerobot.scripts.lerobot_train \
-#     --config_path /content/lerobot/bi_so101_configs/scripts/train_flowmatching_tc_v0_colab.yaml
+#   /home/sst/miniconda3/bin/conda run -n openarm_lerobot \
+#     python -m lerobot.scripts.lerobot_train \
+#     --config_path /home/sst/lerobot_xhaka3456/bi_so101_configs/scripts/train_flowmatching_tc_v0_600steps.yaml
 
 dataset:
-  repo_id: xhaka3456/aic_ur5e_sim_v3_tc_v0
-  root: /content/data/aic_ur5e_sim_v3_tc_v0
+  repo_id: local/aic_ur5e_sim_v3_tc_v0
+  root: /home/sst/lerobot_datasets/aic_ur5e_sim_v3_tc_v0
   episodes: null
   video_backend: torchcodec
   image_transforms:
@@ -30,8 +31,8 @@ dataset:
         kwargs:
           saturation: [0.8, 1.2]
 
-output_dir: /content/outputs/train/flowmatching_tc_v0_aic_ur5e_sim3_5k
-job_name: flowmatching_tc_v0_aic_ur5e_sim_colab_5k
+output_dir: outputs/train/flowmatching_tc_v0_600steps
+job_name: flowmatching_tc_v0_600steps
 
 policy:
   type: flowmatching_tc_v0
@@ -84,24 +85,24 @@ policy:
 
   optimizer_lr: 1.0e-4
   optimizer_weight_decay: 1.0e-4
-  scheduler_warmup_steps: 500
-  scheduler_decay_steps: 5000
+  scheduler_warmup_steps: 200
+  scheduler_decay_steps: 600
   scheduler_decay_lr: 1.0e-6
 
   device: cuda
   use_amp: true
 
   push_to_hub: false
-  repo_id: xhaka3456/flowmatching_tc_v0_aic_ur5e_sim3
+  repo_id: local/flowmatching_tc_v0_600steps
   private: true
 
 batch_size: 24
-steps: 5000
+steps: 600
 num_workers: 12
 
 log_freq: 200
-save_checkpoint: true
-save_freq: 5000
+save_checkpoint: false
+save_freq: 1000
 eval_freq: 0
 
 seed: 42
@@ -109,4 +110,4 @@ use_policy_training_preset: true
 
 wandb:
   enable: false
-  project: aic_ur5e_flowmatching_tc_v0_colab
+  project: aic_ur5e_flowmatching_tc_v0_600steps

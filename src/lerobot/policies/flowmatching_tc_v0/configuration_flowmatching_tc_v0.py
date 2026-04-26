@@ -109,6 +109,23 @@ class FlowMatchingTCV0Config(PreTrainedConfig):
             raise ValueError("At least one image, environment state, or robot state must be provided as input.")
 
     @property
+    def observation_delta_indices_map(self) -> dict[str, list[int]]:
+        history = list(range(-(self.n_obs_steps - 1), 1))
+        delta_map = {}
+
+        for key, feature in self.input_features.items():
+            feature_type = getattr(feature, "type", None)
+            feature_type_name = getattr(feature_type, "value", str(feature_type))
+            if feature_type_name == "VISUAL":
+                # V0 design goal: current image only.
+                delta_map[key] = [0]
+            elif feature_type_name == "STATE":
+                # V0 design goal: temporal proprio / wrench history.
+                delta_map[key] = history
+
+        return delta_map
+
+    @property
     def observation_delta_indices(self) -> list[int]:
         # History: [-3, -2, -1, 0] for n_obs_steps=4 at dataset fps.
         return list(range(-(self.n_obs_steps - 1), 1))
