@@ -401,6 +401,75 @@ class FlowMatchingTCV0Model(nn.Module):
 
         return self.action_out_proj(out)
 
+    def _compute_step_weights(self, batch: dict[str, Tensor]) -> Tensor:
+        """Return per-(batch, time, dim) weighting for the flow loss.
+
+        V1.0 keeps the model architecture fixed and only emphasizes the
+        final approach regime using smooth proxies already available in the batch:
+
+        - downward-dominant residual action
+        - low current TCP speed
+        - elevated / changing wrench signal
+        """
+        actions = batch[ACTION]
+        B, T, A = actions.shape
+        device = actions.device
+        dtype = actions.dtype
+
+        weight = torch.full((B, T, 1), self.config.base_loss_weight, device=device, dtype=dtype)
+
+        if not self.config.enable_final_phase_weighting:
+            return weight.expand(-1, -1, A)
+
+        pos_action = actions[..., :3]
+        lateral_mag = torch.linalg.vector_norm(pos_action[..., :2], dim=-1)
+        downward_mag = torch.relu(-pos_action[..., 2])
+        descent_ratio = downward_mag / (lateral_mag + 1e-6)
+        descent_gate = torch.sigmoid(
+            (descent_ratio - self.config.near_port_descent_ratio_center)
+            * self.config.near_port_descent_ratio_scale
+        )
+
+        speed_gate = torch.ones((B,), device=device, dtype=dtype)
+        force_level_gate = torch.zeros((B,), device=device, dtype=dtype)
+        force_delta_gate = torch.zeros((B,), device=device, dtype=dtype)
+
+        if self.config.robot_state_feature and OBS_STATE in batch:
+            state = batch[OBS_STATE]
+            if state.ndim == 2:
+                state = state.unsqueeze(1)
+
+            current_state = state[:, -1]
+            tcp_velocity = current_state[:, 7:13]
+            speed_norm = torch.linalg.vector_norm(tcp_velocity, dim=-1)
+            speed_gate = torch.sigmoid(
+                (self.config.near_port_speed_center - speed_norm) * self.config.near_port_speed_scale
+            )
+
+            current_wrench = current_state[:, self.proprio_dim :]
+            force_norm = torch.linalg.vector_norm(current_wrench, dim=-1)
+            force_level_gate = torch.sigmoid(
+                (force_norm - self.config.contact_force_level_center) * self.config.contact_force_level_scale
+            )
+
+            if state.shape[1] >= 2:
+                prev_wrench = state[:, -2, self.proprio_dim :]
+                force_delta = torch.linalg.vector_norm(current_wrench - prev_wrench, dim=-1)
+                force_delta_gate = torch.sigmoid(
+                    (force_delta - self.config.contact_force_delta_center)
+                    * self.config.contact_force_delta_scale
+                )
+
+        near_port_gate = descent_gate * speed_gate[:, None]
+        contact_onset_gate = near_port_gate * torch.maximum(force_level_gate, force_delta_gate)[:, None]
+
+        weight = (
+            weight
+            + self.config.near_port_loss_weight * near_port_gate.unsqueeze(-1)
+            + self.config.contact_onset_loss_weight * contact_onset_gate.unsqueeze(-1)
+        )
+        return weight.expand(-1, -1, A)
+
     # ------------------------------------------------------------------
     # Training
     # ------------------------------------------------------------------
@@ -425,8 +494,9 @@ class FlowMatchingTCV0Model(nn.Module):
         obs_features, obs_pos_embeds, task_embed = self._encode_obs(batch)
 
         v_pred = self._predict_velocity(obs_features, obs_pos_embeds, x_t, time, task_embed)
-
-        return F.mse_loss(v_pred, u_t, reduction="none")
+        loss = F.mse_loss(v_pred, u_t, reduction="none")
+        loss = loss * self._compute_step_weights(batch)
+        return loss
 
     # ------------------------------------------------------------------
     # Inference

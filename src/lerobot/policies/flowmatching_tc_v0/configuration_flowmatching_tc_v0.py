@@ -72,6 +72,20 @@ class FlowMatchingTCV0Config(PreTrainedConfig):
     # Task conditioning
     num_tasks: int = 3
 
+    # Final-phase weighting (V1.0)
+    enable_final_phase_weighting: bool = True
+    base_loss_weight: float = 1.0
+    near_port_loss_weight: float = 2.0
+    contact_onset_loss_weight: float = 1.5
+    near_port_descent_ratio_center: float = 1.5
+    near_port_descent_ratio_scale: float = 4.0
+    near_port_speed_center: float = 1.0
+    near_port_speed_scale: float = 3.0
+    contact_force_level_center: float = 1.0
+    contact_force_level_scale: float = 2.0
+    contact_force_delta_center: float = 0.5
+    contact_force_delta_scale: float = 4.0
+
     # Optimizer
     optimizer_lr: float = 1e-4
     optimizer_weight_decay: float = 1e-4

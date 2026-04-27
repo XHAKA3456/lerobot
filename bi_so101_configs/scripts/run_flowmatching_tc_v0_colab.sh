@@ -12,10 +12,12 @@ export DATASET_DIR="${DATASET_DIR:-/content/data/aic_ur5e_sim_v3_tc_v0}"
 
 if [[ "${MODE}" == "smoke" ]]; then
   CONFIG_PATH="${REPO_ROOT}/bi_so101_configs/scripts/train_flowmatching_tc_v0_colab_smoke.yaml"
+elif [[ "${MODE}" == "v1-weighting" ]]; then
+  CONFIG_PATH="${REPO_ROOT}/bi_so101_configs/scripts/train_flowmatching_tc_v1_weighting_colab.yaml"
 elif [[ "${MODE}" == "full" ]]; then
   CONFIG_PATH="${REPO_ROOT}/bi_so101_configs/scripts/train_flowmatching_tc_v0_colab.yaml"
 else
-  echo "Usage: bash bi_so101_configs/scripts/run_flowmatching_tc_v0_colab.sh [smoke|full]"
+  echo "Usage: bash bi_so101_configs/scripts/run_flowmatching_tc_v0_colab.sh [smoke|full|v1-weighting]"
   exit 1
 fi
 

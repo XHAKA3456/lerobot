@@ -1,8 +1,8 @@
-# Flow Matching Task-Conditioned V0 — Colab Full Training Config
+# Flow Matching Task-Conditioned V1.0 — Colab Full Training Config
 #
 # Usage:
 #   python -m lerobot.scripts.lerobot_train \
-#     --config_path /content/lerobot/bi_so101_configs/scripts/train_flowmatching_tc_v0_colab.yaml
+#     --config_path /content/lerobot/bi_so101_configs/scripts/train_flowmatching_tc_v1_weighting_colab.yaml
 
 dataset:
   repo_id: xhaka3456/aic_ur5e_sim_v3_tc_v0
@@ -30,8 +30,8 @@ dataset:
         kwargs:
           saturation: [0.8, 1.2]
 
-output_dir: /content/outputs/train/flowmatching_tc_v0_aic_ur5e_sim3_100k
-job_name: flowmatching_tc_v0_aic_ur5e_sim_colab_100k
+output_dir: /content/outputs/train/flowmatching_tc_v1_weighting_aic_ur5e_sim3_100k
+job_name: flowmatching_tc_v1_weighting_aic_ur5e_sim_colab_100k
 resume: false
 
 policy:
@@ -89,11 +89,24 @@ policy:
   scheduler_decay_steps: 100000
   scheduler_decay_lr: 1.0e-6
 
+  enable_final_phase_weighting: true
+  base_loss_weight: 1.0
+  near_port_loss_weight: 2.0
+  contact_onset_loss_weight: 1.5
+  near_port_descent_ratio_center: 1.5
+  near_port_descent_ratio_scale: 4.0
+  near_port_speed_center: 1.0
+  near_port_speed_scale: 3.0
+  contact_force_level_center: 1.0
+  contact_force_level_scale: 2.0
+  contact_force_delta_center: 0.5
+  contact_force_delta_scale: 4.0
+
   device: cuda
   use_amp: true
 
   push_to_hub: false
-  repo_id: xhaka3456/flowmatching_tc_v0_aic_ur5e_sim3
+  repo_id: xhaka3456/flowmatching_tc_v1_weighting_aic_ur5e_sim3
   private: true
 
 batch_size: 24
@@ -110,4 +123,4 @@ use_policy_training_preset: true
 
 wandb:
   enable: false
-  project: aic_ur5e_flowmatching_tc_v0_colab
+  project: aic_ur5e_flowmatching_tc_v1_weighting_colab
