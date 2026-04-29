@@ -248,6 +248,11 @@ def make_pre_post_processors(
             policy configuration type.
     """
     if pretrained_path:
+        if isinstance(policy_cfg, FlowMatchingTCV0Config):
+            # Register FlowMatchingTCV0-specific processor steps before loading
+            # processor configs that refer to them by registry name.
+            import lerobot.policies.flowmatching_tc_v0.processor_flowmatching_tc_v0  # noqa: F401
+
         # TODO(Steven): Temporary patch, implement correctly the processors for Gr00t
         if isinstance(policy_cfg, GrootConfig):
             # GROOT handles normalization in groot_pack_inputs_v3 step

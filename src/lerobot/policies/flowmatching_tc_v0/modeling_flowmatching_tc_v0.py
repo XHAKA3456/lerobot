@@ -495,7 +495,17 @@ class FlowMatchingTCV0Model(nn.Module):
 
         v_pred = self._predict_velocity(obs_features, obs_pos_embeds, x_t, time, task_embed)
         loss = F.mse_loss(v_pred, u_t, reduction="none")
-        loss = loss * self._compute_step_weights(batch)
+        step_weights = batch.get("loss_weight")
+        if step_weights is None:
+            step_weights = self._compute_step_weights(batch)
+        else:
+            step_weights = step_weights.to(device=loss.device, dtype=loss.dtype)
+            if step_weights.ndim == 2:
+                step_weights = step_weights.unsqueeze(-1)
+            if step_weights.shape[-1] == 1:
+                step_weights = step_weights.expand_as(loss)
+
+        loss = loss * step_weights
         return loss
 
     # ------------------------------------------------------------------
