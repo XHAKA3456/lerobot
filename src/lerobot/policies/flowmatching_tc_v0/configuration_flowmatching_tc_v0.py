@@ -86,6 +86,15 @@ class FlowMatchingTCV0Config(PreTrainedConfig):
     contact_force_delta_center: float = 0.5
     contact_force_delta_scale: float = 4.0
 
+    # SFP low-z alignment weighting (V1c)
+    enable_sfp_alignment_weighting: bool = False
+    sfp_alignment_xy_loss_weight: float = 4.0
+    sfp_alignment_z_loss_weight: float = 0.0
+    sfp_alignment_rot_loss_weight: float = 2.0
+    sfp_alignment_z_min: float = 0.18
+    sfp_alignment_z_max: float = 0.30
+    sfp_alignment_z_gate_scale: float = 80.0
+
     # Optimizer
     optimizer_lr: float = 1e-4
     optimizer_weight_decay: float = 1e-4

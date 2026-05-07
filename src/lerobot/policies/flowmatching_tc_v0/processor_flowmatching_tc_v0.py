@@ -56,6 +56,13 @@ class FlowMatchingTCV0FinalPhaseLossWeightStep(ProcessorStep):
     contact_force_level_scale: float = 2.0
     contact_force_delta_center: float = 0.5
     contact_force_delta_scale: float = 4.0
+    enable_sfp_alignment_weighting: bool = False
+    sfp_alignment_xy_loss_weight: float = 4.0
+    sfp_alignment_z_loss_weight: float = 0.0
+    sfp_alignment_rot_loss_weight: float = 2.0
+    sfp_alignment_z_min: float = 0.18
+    sfp_alignment_z_max: float = 0.30
+    sfp_alignment_z_gate_scale: float = 80.0
     robot_state_feature: bool = True
     proprio_dim: int = 20
 
@@ -89,6 +96,7 @@ class FlowMatchingTCV0FinalPhaseLossWeightStep(ProcessorStep):
         speed_gate = torch.ones((B,), device=device, dtype=dtype)
         force_level_gate = torch.zeros((B,), device=device, dtype=dtype)
         force_delta_gate = torch.zeros((B,), device=device, dtype=dtype)
+        current_state = None
 
         observation = transition.get(TransitionKey.OBSERVATION) or {}
         state = observation.get(OBS_STATE)
@@ -122,9 +130,43 @@ class FlowMatchingTCV0FinalPhaseLossWeightStep(ProcessorStep):
             + self.contact_onset_loss_weight * contact_onset_gate.unsqueeze(-1)
         )
 
+        weight = weight.expand(-1, -1, A).clone()
+
+        if self.enable_sfp_alignment_weighting and current_state is not None:
+            complementary_data = transition.get(TransitionKey.COMPLEMENTARY_DATA) or {}
+            task_index = complementary_data.get("task_index")
+            if task_index is not None:
+                if not isinstance(task_index, torch.Tensor):
+                    task_index = torch.as_tensor(task_index, device=device)
+                task_index = task_index.to(device=device)
+                if task_index.ndim == 0:
+                    task_index = task_index.unsqueeze(0)
+                if task_index.ndim == 2 and task_index.shape[-1] == 1:
+                    task_index = task_index.squeeze(-1)
+
+                if task_index.shape[0] == B:
+                    # In this dataset contract, task 0/1 are SFP port variants; task 2 is SC.
+                    sfp_task_gate = ((task_index == 0) | (task_index == 1)).to(dtype=dtype)
+                    tcp_z = current_state[:, 2]
+                    z_low_gate = torch.sigmoid(
+                        (tcp_z - self.sfp_alignment_z_min) * self.sfp_alignment_z_gate_scale
+                    )
+                    z_high_gate = torch.sigmoid(
+                        (self.sfp_alignment_z_max - tcp_z) * self.sfp_alignment_z_gate_scale
+                    )
+                    alignment_gate = sfp_task_gate * z_low_gate * z_high_gate
+
+                    dim_weight = torch.zeros((B, T, A), device=device, dtype=dtype)
+                    dim_weight[..., 0:2] = self.sfp_alignment_xy_loss_weight
+                    if A > 2:
+                        dim_weight[..., 2] = self.sfp_alignment_z_loss_weight
+                    if A > 3:
+                        dim_weight[..., 3:] = self.sfp_alignment_rot_loss_weight
+                    weight = weight + alignment_gate[:, None, None] * dim_weight
+
         new_transition = transition.copy()
         complementary_data = dict(new_transition.get(TransitionKey.COMPLEMENTARY_DATA) or {})
-        complementary_data[LOSS_WEIGHT] = weight.expand(-1, -1, A)
+        complementary_data[LOSS_WEIGHT] = weight
         new_transition[TransitionKey.COMPLEMENTARY_DATA] = complementary_data
         return new_transition
 
@@ -142,6 +184,13 @@ class FlowMatchingTCV0FinalPhaseLossWeightStep(ProcessorStep):
             "contact_force_level_scale": self.contact_force_level_scale,
             "contact_force_delta_center": self.contact_force_delta_center,
             "contact_force_delta_scale": self.contact_force_delta_scale,
+            "enable_sfp_alignment_weighting": self.enable_sfp_alignment_weighting,
+            "sfp_alignment_xy_loss_weight": self.sfp_alignment_xy_loss_weight,
+            "sfp_alignment_z_loss_weight": self.sfp_alignment_z_loss_weight,
+            "sfp_alignment_rot_loss_weight": self.sfp_alignment_rot_loss_weight,
+            "sfp_alignment_z_min": self.sfp_alignment_z_min,
+            "sfp_alignment_z_max": self.sfp_alignment_z_max,
+            "sfp_alignment_z_gate_scale": self.sfp_alignment_z_gate_scale,
             "robot_state_feature": self.robot_state_feature,
             "proprio_dim": self.proprio_dim,
         }
@@ -179,6 +228,13 @@ def make_flowmatching_tc_v0_pre_post_processors(
             contact_force_level_scale=config.contact_force_level_scale,
             contact_force_delta_center=config.contact_force_delta_center,
             contact_force_delta_scale=config.contact_force_delta_scale,
+            enable_sfp_alignment_weighting=config.enable_sfp_alignment_weighting,
+            sfp_alignment_xy_loss_weight=config.sfp_alignment_xy_loss_weight,
+            sfp_alignment_z_loss_weight=config.sfp_alignment_z_loss_weight,
+            sfp_alignment_rot_loss_weight=config.sfp_alignment_rot_loss_weight,
+            sfp_alignment_z_min=config.sfp_alignment_z_min,
+            sfp_alignment_z_max=config.sfp_alignment_z_max,
+            sfp_alignment_z_gate_scale=config.sfp_alignment_z_gate_scale,
             robot_state_feature=bool(config.robot_state_feature),
         ),
         NormalizerProcessorStep(
