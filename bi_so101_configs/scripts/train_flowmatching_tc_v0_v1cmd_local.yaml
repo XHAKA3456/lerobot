@@ -1,7 +1,7 @@
 # Flow Matching Task-Conditioned V0 - V1Command 6D delta dataset
 #
-# Dataset: xhaka3456/aic_ur5e_sim_v4_tc_v1cmd_750eps
-#   - 3 tasks: insert_sfp_port_0 (210), insert_sfp_port_1 (240), insert_sc (300)
+# Dataset: xhaka3456/aic_ur5e_sim_v4_tc_v1cmd_756eps
+#   - 3 tasks: insert_sfp_port_0 (212), insert_sfp_port_1 (241), insert_sc (303)
 #   - Collected with DataCollectingCheatCodeV1Command (residual 6D command labels)
 #   - Actual control uses strong cheat pose; saved labels are bounded 6D residual commands
 #
@@ -10,8 +10,8 @@
 #     --config_path bi_so101_configs/scripts/train_flowmatching_tc_v0_v1cmd_local.yaml
 
 dataset:
-  repo_id: xhaka3456/aic_ur5e_sim_v4_tc_v1cmd_750eps
-  root: /home/sst/lerobot_datasets/aic_ur5e_sim_v4_tc_v1cmd_750eps
+  repo_id: xhaka3456/aic_ur5e_sim_v4_tc_v1cmd_756eps
+  root: /home/sst/lerobot_datasets/aic_ur5e_sim_v4_tc_v1cmd_756eps
   episodes: null
   video_backend: torchcodec
   image_transforms:
@@ -35,8 +35,8 @@ dataset:
         kwargs:
           saturation: [0.8, 1.2]
 
-output_dir: outputs/train/flowmatching_tc_v1cmd_delta_aic_ur5e_sim_v4_750eps_100k
-job_name: flowmatching_tc_v1cmd_delta_aic_ur5e_sim_v4_750eps_100k
+output_dir: outputs/train/flowmatching_tc_v1cmd_delta_aic_ur5e_sim_v4_756eps_100k
+job_name: flowmatching_tc_v1cmd_delta_aic_ur5e_sim_v4_756eps_100k
 resume: false
 
 policy:
@@ -119,7 +119,7 @@ policy:
   use_amp: true
 
   push_to_hub: true
-  repo_id: xhaka3456/flowmatching_tc_v1cmd_delta_aic_ur5e_sim_v4_750eps_100k
+  repo_id: xhaka3456/flowmatching_tc_v1cmd_delta_aic_ur5e_sim_v4_756eps_100k
   private: false
 
 batch_size: 24
@@ -136,4 +136,4 @@ use_policy_training_preset: true
 
 wandb:
   enable: false
-  project: flowmatching_tc_v1cmd_delta_aic_ur5e_sim_v4_750eps_100k
+  project: flowmatching_tc_v1cmd_delta_aic_ur5e_sim_v4_756eps_100k
