@@ -38,8 +38,8 @@ dataset:
         kwargs:
           saturation: [0.8, 1.2]
 
-output_dir: /content/outputs/train/flowmatching_tc_v1cmd_delta_aic_ur5e_sim_v4_933eps_100k
-job_name: flowmatching_tc_v1cmd_delta_aic_ur5e_sim_v4_colab_933eps_100k
+output_dir: /content/outputs/train/flowmatching_tc_v1cmd_delta_aic_ur5e_sim_v4_933eps_200k
+job_name: flowmatching_tc_v1cmd_delta_aic_ur5e_sim_v4_colab_933eps_200k
 resume: false
 
 policy:
@@ -91,11 +91,11 @@ policy:
   min_period: 0.004
   max_period: 4.0
 
-  optimizer_lr: 1.0e-4
+  optimizer_lr: 1.5e-4
   optimizer_weight_decay: 1.0e-4
   scheduler_warmup_steps: 5000
-  scheduler_decay_steps: 100000
-  scheduler_decay_lr: 1.0e-6
+  scheduler_decay_steps: 200000
+  scheduler_decay_lr: 5.0e-6
 
   enable_final_phase_weighting: true
   base_loss_weight: 1.0
@@ -110,7 +110,7 @@ policy:
   contact_force_delta_center: 0.5
   contact_force_delta_scale: 4.0
 
-  enable_sfp_alignment_weighting: false
+  enable_sfp_alignment_weighting: true
   sfp_alignment_xy_loss_weight: 4.0
   sfp_alignment_z_loss_weight: 0.0
   sfp_alignment_rot_loss_weight: 2.0
@@ -122,11 +122,11 @@ policy:
   use_amp: true
 
   push_to_hub: true
-  repo_id: xhaka3456/flowmatching_tc_v1cmd_delta_aic_ur5e_sim_v4_933eps_100k
+  repo_id: xhaka3456/flowmatching_tc_v1cmd_delta_aic_ur5e_sim_v4_933eps_200k
   private: false
 
 batch_size: 24
-steps: 100000
+steps: 200000
 num_workers: 12
 
 log_freq: 200
@@ -139,4 +139,4 @@ use_policy_training_preset: true
 
 wandb:
   enable: false
-  project: flowmatching_tc_v1cmd_delta_aic_ur5e_sim_v4_colab_933eps_100k
+  project: flowmatching_tc_v1cmd_delta_aic_ur5e_sim_v4_colab_933eps_200k
