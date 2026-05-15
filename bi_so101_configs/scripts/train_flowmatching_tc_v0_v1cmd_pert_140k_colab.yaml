@@ -3,8 +3,8 @@
 # Dataset: xhaka3456/aic_ur5e_sim_v4_tc_v1cmd_770eps_pert
 #   - 3 tasks: insert_sfp_port_0, insert_sfp_port_1, insert_sc
 #   - Clean episodes: SC(200), SFP0(150), SFP1(150) = 500
-#   - Perturbed episodes: SC(150), SFP0(100), SFP1(100) = 350
-#   - Perturbation: random XY offset (max 10mm SC / 12mm SFP), decays in last 5cm
+#   - Perturbed episodes: SC(150), SFP0(60), SFP1(60) = 270
+#   - Perturbation: random XY offset, decays near the port entrance
 #
 # Changes from 750eps_100k:
 #   - New perturb data for alignment learning
