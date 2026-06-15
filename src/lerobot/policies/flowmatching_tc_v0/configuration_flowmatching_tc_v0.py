@@ -98,6 +98,7 @@ class FlowMatchingTCV0Config(PreTrainedConfig):
     # Optimizer
     optimizer_lr: float = 1e-4
     optimizer_weight_decay: float = 1e-4
+    optimizer_grad_clip_norm: float = 10.0
 
     # LR scheduler
     scheduler_warmup_steps: int = 5000
@@ -117,6 +118,7 @@ class FlowMatchingTCV0Config(PreTrainedConfig):
         return AdamWConfig(
             lr=self.optimizer_lr,
             weight_decay=self.optimizer_weight_decay,
+            grad_clip_norm=self.optimizer_grad_clip_norm,
         )
 
     def get_scheduler_preset(self) -> CosineDecayWithWarmupSchedulerConfig:

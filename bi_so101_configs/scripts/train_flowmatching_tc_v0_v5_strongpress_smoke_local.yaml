@@ -1,0 +1,104 @@
+# Flow Matching TC V0 - V5 strongpress LOCAL SMOKE TEST (RTX 4060 8GB)
+#
+# 목적: Colab 풀학습 전, 로컬에서 파이프라인만 빠르게 검증.
+#   ✓ v5 데이터셋 로드  ✓ task_index 0/1/2 배치 유입  ✓ action 6D 매칭  ✓ loss 하강
+# 풀학습 아님. ~300 step, batch 4. OOM 시 batch_size 2로 낮출 것.
+#
+# 실행 (로컬, openarm_lerobot 환경):
+#   cd /home/sst/lerobot_xhaka3456
+#   python -m lerobot.scripts.lerobot_train \
+#     --config_path bi_so101_configs/scripts/train_flowmatching_tc_v0_v5_strongpress_smoke_local.yaml
+
+dataset:
+  repo_id: xhaka3456/aic_ur5e_sim_v5_strongpress_1203eps
+  root: /home/sst/lerobot_datasets/aic_ur5e_sim_v5_strongpress_1203eps
+  episodes: null            # 전체 로드(셔플이 3태스크 모두 샘플) — 메타만 읽고 300배치만 학습
+  video_backend: torchcodec
+  image_transforms:
+    enable: false
+
+output_dir: /home/sst/outputs/train/flowmatching_tc_v5_smoke_local
+job_name: flowmatching_tc_v5_smoke_local
+resume: false
+
+policy:
+  type: flowmatching_tc_v0
+
+  n_obs_steps: 4
+  chunk_size: 20
+  n_action_steps: 2
+  num_tasks: 3
+  use_latest_image_only: true
+
+  input_features:
+    observation.state:
+      type: STATE
+      shape: [26]
+    observation.images.left_camera:
+      type: VISUAL
+      shape: [3, 480, 640]
+    observation.images.center_camera:
+      type: VISUAL
+      shape: [3, 480, 640]
+    observation.images.right_camera:
+      type: VISUAL
+      shape: [3, 480, 640]
+
+  output_features:
+    action:
+      type: ACTION
+      shape: [6]
+
+  normalization_mapping:
+    VISUAL: MEAN_STD
+    STATE: MEAN_STD
+    ACTION: MEAN_STD
+
+  dinov2_model_name: facebook/dinov2-base
+  dim_model: 512
+  n_heads: 8
+  dim_feedforward: 3200
+  dropout: 0.1
+  n_obs_encoder_layers: 6
+  n_velocity_layers: 6
+
+  num_inference_steps: 10
+  time_sampling_beta_alpha: 1.5
+  time_sampling_beta_beta: 1.0
+  time_sampling_scale: 0.999
+  time_sampling_offset: 0.001
+  min_period: 0.004
+  max_period: 4.0
+
+  optimizer_lr: 1.5e-4
+  optimizer_weight_decay: 1.0e-4
+  optimizer_grad_clip_norm: 1.0   # 실제 학습과 동일하게 맞춤
+  scheduler_warmup_steps: 20
+  scheduler_decay_steps: 300
+  scheduler_decay_lr: 5.0e-6
+
+  enable_final_phase_weighting: false
+  enable_sfp_alignment_weighting: false
+
+  device: cuda
+  use_amp: true
+
+  push_to_hub: false
+  repo_id: local/flowmatching_tc_v5_smoke_local
+  private: false
+
+batch_size: 4
+steps: 300
+num_workers: 4
+
+log_freq: 20
+save_checkpoint: false
+save_freq: 100000
+eval_freq: 0
+
+seed: 42
+use_policy_training_preset: true
+
+wandb:
+  enable: false
+  project: flowmatching_tc_v5_smoke_local

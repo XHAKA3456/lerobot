@@ -14,10 +14,20 @@ if [[ "${MODE}" == "smoke" ]]; then
   CONFIG_PATH="${REPO_ROOT}/bi_so101_configs/scripts/train_flowmatching_tc_v0_colab_smoke.yaml"
 elif [[ "${MODE}" == "v1-weighting" ]]; then
   CONFIG_PATH="${REPO_ROOT}/bi_so101_configs/scripts/train_flowmatching_tc_v1_weighting_colab.yaml"
+elif [[ "${MODE}" == "v5-clean" ]]; then
+  # v5 strongpress clean baseline (보정 hack OFF)
+  export DATASET_REPO_ID="xhaka3456/aic_ur5e_sim_v5_strongpress_1203eps"
+  export DATASET_DIR="/content/data/aic_ur5e_sim_v5_strongpress_1203eps"
+  CONFIG_PATH="${REPO_ROOT}/bi_so101_configs/scripts/train_flowmatching_tc_v0_v5_strongpress_cleanbaseline_colab.yaml"
+elif [[ "${MODE}" == "v5-weighting" ]]; then
+  # v5 strongpress + weighting (baseline 이후 비교용)
+  export DATASET_REPO_ID="xhaka3456/aic_ur5e_sim_v5_strongpress_1203eps"
+  export DATASET_DIR="/content/data/aic_ur5e_sim_v5_strongpress_1203eps"
+  CONFIG_PATH="${REPO_ROOT}/bi_so101_configs/scripts/train_flowmatching_tc_v0_v5_strongpress_weighting_colab.yaml"
 elif [[ "${MODE}" == "full" ]]; then
   CONFIG_PATH="${REPO_ROOT}/bi_so101_configs/scripts/train_flowmatching_tc_v0_colab.yaml"
 else
-  echo "Usage: bash bi_so101_configs/scripts/run_flowmatching_tc_v0_colab.sh [smoke|full|v1-weighting]"
+  echo "Usage: bash bi_so101_configs/scripts/run_flowmatching_tc_v0_colab.sh [smoke|full|v1-weighting|v5-clean|v5-weighting]"
   exit 1
 fi
 
