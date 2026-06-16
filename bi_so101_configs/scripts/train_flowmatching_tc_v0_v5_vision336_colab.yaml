@@ -1,0 +1,130 @@
+# Flow Matching TC V0 - V5 strongpress VISION 336 (Colab)
+#
+# 목적: privileged 기반 재라벨(깊은 누름)의 효과를 "보정 hack 없이" 깨끗이 측정.
+#   - 라벨 = (command_pose - 현재 TCP) residual 6D, outlier만 clip (dz[-0.10,+0.02])
+#   - enable_final_phase_weighting: false   (포트근처/접촉 loss 가중 OFF)
+#   - enable_sfp_alignment_weighting: false  (SFP 정렬 loss 가중 OFF)
+#   - 추론도 rolling/guard 없이 표준 residual->target 으로 평가할 것
+#
+# Dataset: xhaka3456/aic_ur5e_sim_v5_strongpress_1203eps
+#   task_index: sfp_port_0=0, sfp_port_1=1, sc=2
+#   SFP0 310ep / SFP1 341ep / SC 552ep  (strong_control + privileged 만 선별)
+#
+# 실행 (Colab):
+#   python -m lerobot.scripts.lerobot_train \
+#     --config_path /content/lerobot/bi_so101_configs/scripts/train_flowmatching_tc_v0_v5_strongpress_cleanbaseline_colab.yaml
+
+dataset:
+  repo_id: xhaka3456/aic_ur5e_sim_v5_strongpress_1203eps
+  root: /content/data/aic_ur5e_sim_v5_strongpress_1203eps
+  episodes: null
+  video_backend: torchcodec
+  image_transforms:
+    enable: true
+    max_num_transforms: 2
+    random_order: false
+    tfs:
+      brightness:
+        weight: 1.0
+        type: ColorJitter
+        kwargs:
+          brightness: [0.8, 1.2]
+      contrast:
+        weight: 1.0
+        type: ColorJitter
+        kwargs:
+          contrast: [0.8, 1.2]
+      saturation:
+        weight: 0.5
+        type: ColorJitter
+        kwargs:
+          saturation: [0.8, 1.2]
+
+output_dir: /content/outputs/train/flowmatching_tc_v5_strongpress_vision336_150k
+job_name: flowmatching_tc_v5_strongpress_vision336_150k
+resume: false
+
+policy:
+  type: flowmatching_tc_v0
+
+  n_obs_steps: 4
+  chunk_size: 20
+  n_action_steps: 2
+  num_tasks: 3
+  use_latest_image_only: true
+
+  input_features:
+    observation.state:
+      type: STATE
+      shape: [26]
+    observation.images.left_camera:
+      type: VISUAL
+      shape: [3, 480, 640]
+    observation.images.center_camera:
+      type: VISUAL
+      shape: [3, 480, 640]
+    observation.images.right_camera:
+      type: VISUAL
+      shape: [3, 480, 640]
+
+  output_features:
+    action:
+      type: ACTION
+      shape: [6]
+
+  normalization_mapping:
+    VISUAL: MEAN_STD
+    STATE: MEAN_STD
+    ACTION: MEAN_STD
+
+  dinov2_model_name: facebook/dinov2-base
+  dinov2_image_size: 336
+  dinov2_pool_kernel: 2
+  dim_model: 512
+  n_heads: 8
+  dim_feedforward: 3200
+  dropout: 0.1
+  n_obs_encoder_layers: 6
+  n_velocity_layers: 6
+
+  num_inference_steps: 10
+  time_sampling_beta_alpha: 1.5
+  time_sampling_beta_beta: 1.0
+  time_sampling_scale: 0.999
+  time_sampling_offset: 0.001
+  min_period: 0.004
+  max_period: 4.0
+
+  optimizer_lr: 1.5e-4
+  optimizer_weight_decay: 1.0e-4
+  optimizer_grad_clip_norm: 1.0   # v5 bimodal action 안전 마진 (기본 10.0 → 1.0)
+  scheduler_warmup_steps: 5000
+  scheduler_decay_steps: 150000
+  scheduler_decay_lr: 5.0e-6
+
+  # === CLEAN BASELINE: 모든 보정 weighting OFF ===
+  enable_final_phase_weighting: false
+  enable_sfp_alignment_weighting: false
+
+  device: cuda
+  use_amp: true
+
+  push_to_hub: true
+  repo_id: xhaka3456/flowmatching_tc_v5_strongpress_vision336_150k
+  private: false
+
+batch_size: 24
+steps: 150000
+num_workers: 12
+
+log_freq: 200
+save_checkpoint: true
+save_freq: 20000
+eval_freq: 0
+
+seed: 42
+use_policy_training_preset: true
+
+wandb:
+  enable: false
+  project: flowmatching_tc_v5_strongpress_vision336_150k

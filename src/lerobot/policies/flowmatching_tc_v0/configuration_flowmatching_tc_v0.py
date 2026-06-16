@@ -47,6 +47,10 @@ class FlowMatchingTCV0Config(PreTrainedConfig):
 
     # Vision backbone: DINOv2 (frozen, HuggingFace)
     dinov2_model_name: str = "facebook/dinov2-base"  # outputs 768-dim patch tokens
+    # Vision spatial resolution. 224 → 16x16 patches; 336 → 24x24 (more mm-precision).
+    # Backward compatible: old checkpoints w/o this field default to 224.
+    dinov2_image_size: int = 224
+    dinov2_pool_kernel: int = 2  # avg-pool over patch grid (2 → grid/2 tokens/cam)
 
     # Transformer dimensions
     dim_model: int = 512

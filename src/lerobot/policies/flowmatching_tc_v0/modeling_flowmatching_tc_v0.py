@@ -38,13 +38,10 @@ from lerobot.policies.flowmatching_tc_v0.configuration_flowmatching_tc_v0 import
 from lerobot.policies.pretrained import PreTrainedPolicy
 from lerobot.utils.constants import ACTION, OBS_ENV_STATE, OBS_IMAGES, OBS_STATE
 
-# DINOv2 ViT-B/14 patch token dimension
+# DINOv2 ViT-B/14 patch token dimension / patch size
 _DINOV2_DIM = 768
-_DINOV2_IMAGE_SIZE = 224
-_DINOV2_NUM_PATCHES = 256
-_DINOV2_GRID_SIZE = 16
-_POOL_KERNEL = 2
-_POOLED_NUM_PATCHES = (_DINOV2_GRID_SIZE // _POOL_KERNEL) ** 2  # 64
+_DINOV2_PATCH = 14
+# Spatial grid is derived from config.dinov2_image_size at runtime (see model __init__).
 
 
 # ---------------------------------------------------------------------------
@@ -194,6 +191,12 @@ class FlowMatchingTCV0Model(nn.Module):
         # ---- Task embedding ----
         self.task_embed = nn.Embedding(config.num_tasks, D)
 
+        # ---- Vision spatial config (resolution-driven) ----
+        self.dino_image_size = config.dinov2_image_size
+        self.dino_grid_size = config.dinov2_image_size // _DINOV2_PATCH
+        self.pool_kernel = config.dinov2_pool_kernel
+        self.pooled_num_patches = (self.dino_grid_size // self.pool_kernel) ** 2
+
         # ---- Vision backbone: DINOv2 ViT-B/14 (frozen) ----
         if config.image_features:
             self.dinov2 = AutoModel.from_pretrained(config.dinov2_model_name)
@@ -203,7 +206,7 @@ class FlowMatchingTCV0Model(nn.Module):
             self.img_feat_proj = nn.Linear(_DINOV2_DIM, D)
             num_cameras = len(config.image_features)
             self.camera_embed = nn.Embedding(num_cameras, D)
-            self.patch_pos_embed = nn.Embedding(_POOLED_NUM_PATCHES, D)
+            self.patch_pos_embed = nn.Embedding(self.pooled_num_patches, D)
 
         # ---- 1-D tokens (task, state, env_state) ----
         # task token is always first, then proprio summary, wrench summary, then env_state
@@ -328,7 +331,7 @@ class FlowMatchingTCV0Model(nn.Module):
                     img = img[:, -1] if self.config.use_latest_image_only else img[:, 0]
                 B_img = img.shape[0]
                 img_resized = F.interpolate(
-                    img, size=(_DINOV2_IMAGE_SIZE, _DINOV2_IMAGE_SIZE),
+                    img, size=(self.dino_image_size, self.dino_image_size),
                     mode="bilinear", align_corners=False,
                 )
                 with torch.no_grad():
@@ -336,17 +339,17 @@ class FlowMatchingTCV0Model(nn.Module):
                 patch_tokens = dino_out.last_hidden_state[:, 1:]
 
                 feat = self.img_feat_proj(patch_tokens)
-                feat = feat.view(B_img, _DINOV2_GRID_SIZE, _DINOV2_GRID_SIZE, D)
+                feat = feat.view(B_img, self.dino_grid_size, self.dino_grid_size, D)
                 feat = feat.permute(0, 3, 1, 2)
-                feat = F.avg_pool2d(feat, kernel_size=_POOL_KERNEL)
-                feat = feat.permute(0, 2, 3, 1).reshape(B_img, _POOLED_NUM_PATCHES, D)
+                feat = F.avg_pool2d(feat, kernel_size=self.pool_kernel)
+                feat = feat.permute(0, 2, 3, 1).reshape(B_img, self.pooled_num_patches, D)
 
                 feat = feat + self.camera_embed.weight[cam_idx]
                 feat = feat + self.patch_pos_embed.weight.unsqueeze(0)
 
                 feat = einops.rearrange(feat, "b n d -> n b d")
 
-                pos = torch.zeros(_POOLED_NUM_PATCHES, 1, D, device=feat.device, dtype=feat.dtype)
+                pos = torch.zeros(self.pooled_num_patches, 1, D, device=feat.device, dtype=feat.dtype)
 
                 tokens.extend(list(feat))
                 pos_embeds.extend(list(pos))
