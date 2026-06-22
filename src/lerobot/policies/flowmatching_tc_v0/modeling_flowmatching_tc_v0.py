@@ -22,6 +22,7 @@ encoder input, enabling multi-task conditioning (e.g., SFP vs SC).
 
 import copy
 import math
+import os
 from collections import deque
 from itertools import chain
 from pathlib import Path
@@ -530,7 +531,13 @@ class FlowMatchingTCV0Model(nn.Module):
         A = self.config.action_feature.shape[0]
         T = self.config.chunk_size
 
-        x_t = torch.randn(B, T, A, dtype=torch.float32, device=device)
+        # Deterministic inference: fix the initial noise so each re-plan yields a
+        # consistent action chunk (removes per-replan sampling jitter). Env-gated.
+        if os.environ.get("FM_TC_V0_DETERMINISTIC", "0") == "1":
+            gen = torch.Generator(device=device).manual_seed(0)
+            x_t = torch.randn(B, T, A, dtype=torch.float32, device=device, generator=gen)
+        else:
+            x_t = torch.randn(B, T, A, dtype=torch.float32, device=device)
 
         obs_features, obs_pos_embeds, task_embed = self._encode_obs(batch)
 

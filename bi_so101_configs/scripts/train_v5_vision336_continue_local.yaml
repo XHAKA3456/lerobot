@@ -1,0 +1,88 @@
+# vision336 CONTINUE (로컬 4060) — 120k 가중치 warm-start + 중간 lr
+# 목적: vision336이 더 학습하면 계속 오르는지 로컬에서 확인 (batch 작음, 효과는 약하지만 추세 확인)
+# warm-start: pretrained_path로 120k 가중치 로드, optimizer/step은 새로(중간 lr 제어 위해)
+#
+# 실행:
+#   cd /home/sst/lerobot_xhaka3456
+#   python -m lerobot.scripts.lerobot_train \
+#     --config_path bi_so101_configs/scripts/train_v5_vision336_continue_local.yaml
+
+dataset:
+  repo_id: xhaka3456/aic_ur5e_sim_v5_strongpress_1203eps
+  root: /home/sst/lerobot_datasets/aic_ur5e_sim_v5_strongpress_1203eps
+  episodes: null
+  video_backend: torchcodec
+  image_transforms:
+    enable: true
+    max_num_transforms: 2
+    random_order: false
+    tfs:
+      brightness: {weight: 1.0, type: ColorJitter, kwargs: {brightness: [0.8, 1.2]}}
+      contrast:   {weight: 1.0, type: ColorJitter, kwargs: {contrast: [0.8, 1.2]}}
+      saturation: {weight: 0.5, type: ColorJitter, kwargs: {saturation: [0.8, 1.2]}}
+
+output_dir: /home/sst/outputs/train/v5_vision336_continue_local
+job_name: v5_vision336_continue_local
+resume: false
+
+policy:
+  type: flowmatching_tc_v0
+  pretrained_path: /home/sst/aic/flowmatching_arcitacture/models/vision336_120k_dl/pretrained_model
+
+  n_obs_steps: 4
+  chunk_size: 20
+  n_action_steps: 2
+  num_tasks: 3
+  use_latest_image_only: true
+
+  dinov2_model_name: facebook/dinov2-base
+  dinov2_image_size: 336
+  dinov2_pool_kernel: 2
+  dim_model: 512
+  n_heads: 8
+  dim_feedforward: 3200
+  dropout: 0.1
+  n_obs_encoder_layers: 6
+  n_velocity_layers: 6
+
+  num_inference_steps: 10
+  time_sampling_beta_alpha: 1.5
+  time_sampling_beta_beta: 1.0
+  time_sampling_scale: 0.999
+  time_sampling_offset: 0.001
+  min_period: 0.004
+  max_period: 4.0
+
+  # 중간 lr: warm 모델이라 peak 낮게 + 짧은 warmup, 천천히 감소
+  optimizer_lr: 4.0e-5
+  optimizer_weight_decay: 1.0e-4
+  optimizer_grad_clip_norm: 1.0
+  scheduler_warmup_steps: 500
+  scheduler_decay_steps: 75000
+  scheduler_decay_lr: 5.0e-6
+
+  enable_final_phase_weighting: false
+  enable_sfp_alignment_weighting: false
+
+  device: cuda
+  use_amp: true
+
+  push_to_hub: false
+  repo_id: local/v5_vision336_continue_local
+  private: false
+
+batch_size: 8
+steps: 75000
+num_workers: 4
+
+log_freq: 200
+save_checkpoint: true
+save_freq: 15000
+eval_freq: 0
+
+seed: 42
+use_policy_training_preset: true
+
+wandb:
+  enable: false
+  project: v5_vision336_continue_local
